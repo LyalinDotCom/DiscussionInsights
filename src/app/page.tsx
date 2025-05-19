@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -266,7 +267,7 @@ export default function VerbalInsightsPage() {
             <AnalysisSection title="Sentiment Analysis" icon={getSentimentIcon(sentimentData?.sentiment)} isLoading={isLoadingSentiment} error={errorSentiment}>
               {sentimentData ? (
                 <div className="space-y-2">
-                  <p><strong>Overall Sentiment:</strong> <Badge variant={sentimentData.sentiment.toLowerCase().includes('positive') ? 'default' : sentimentData.sentiment.toLowerCase().includes('negative') ? 'destructive' : 'secondary'}>{sentimentData.sentiment}</Badge></p>
+                  <div><strong>Overall Sentiment:</strong> <Badge variant={sentimentData.sentiment.toLowerCase().includes('positive') ? 'default' : sentimentData.sentiment.toLowerCase().includes('negative') ? 'destructive' : 'secondary'}>{sentimentData.sentiment}</Badge></div>
                   <p><strong>Score:</strong> {sentimentData.score.toFixed(2)}</p>
                   <p className="text-sm text-muted-foreground"><strong>Explanation:</strong> {sentimentData.explanation}</p>
                 </div>
@@ -327,3 +328,6 @@ export default function VerbalInsightsPage() {
     </div>
   );
 }
+
+
+    
