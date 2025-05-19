@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-// import NextImage from 'next/image'; // No longer needed for header image display here
 import { UrlInputForm } from '@/components/verbal-insights/UrlInputForm';
 import { AnalysisSection } from '@/components/verbal-insights/AnalysisSection';
 import { ActionButtons } from '@/components/verbal-insights/ActionButtons';
@@ -11,7 +10,7 @@ import { LoadingIndicator } from '@/components/verbal-insights/LoadingIndicator'
 import { fetchUrlContent } from '@/lib/actions';
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, FileText, ListChecks, MessageSquareText, Link as LinkIcon, Smile, Frown, Meh, QuoteIcon, Tags } from 'lucide-react'; // Removed ImageIcon
+import { AlertCircle, FileText, ListChecks, MessageSquareText, Link as LinkIcon, Smile, Frown, Meh, QuoteIcon, Tags } from 'lucide-react';
 import { WordCloudDisplay } from '@/components/verbal-insights/WordCloudDisplay';
 import { useToast } from '@/hooks/use-toast';
 
@@ -35,7 +34,6 @@ export default function VerbalInsightsPage() {
 
   const [headerImageData, setHeaderImageData] = useState<GenerateHeaderImageOutput | null>(null);
   const [isLoadingHeaderImage, setIsLoadingHeaderImage] = useState(false);
-  // const [errorHeaderImage, setErrorHeaderImage] = useState<string | null>(null); // Error handled by not showing background
 
   const [summaryData, setSummaryData] = useState<SummarizeDiscussionOutput | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
@@ -69,7 +67,7 @@ export default function VerbalInsightsPage() {
     setUrlError(null);
     setAnalysisInitiated(false);
     
-    setHeaderImageData(null); setIsLoadingHeaderImage(false); // setErrorHeaderImage(null);
+    setHeaderImageData(null); setIsLoadingHeaderImage(false);
     setSummaryData(null); setIsLoadingSummary(false); setErrorSummary(null);
     setKeyPointsData(null); setIsLoadingKeyPoints(false); setErrorKeyPoints(null);
     setSentimentData(null); setIsLoadingSentiment(false); setErrorSentiment(null);
@@ -122,8 +120,7 @@ export default function VerbalInsightsPage() {
         .then(setHeaderImageData)
         .catch(err => {
             console.error("Failed to generate header image:", err.message);
-            // setErrorHeaderImage(err.message || "Failed to generate header image."); // Not displayed as section anymore
-            setHeaderImageData(null); // Ensure no old image persists on error
+            setHeaderImageData(null);
         })
         .finally(() => setIsLoadingHeaderImage(false));
 
@@ -295,6 +292,72 @@ export default function VerbalInsightsPage() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [analysisInitiated, isAnyLoading, hasAnyData]); 
 
+  // Individual copy handlers
+  const handleCopySection = useCallback(async (content: string | null, sectionName: string) => {
+    if (!content) {
+      toast({ title: `No ${sectionName} Data`, description: `No ${sectionName.toLowerCase()} data to copy.`, variant: "destructive" });
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(content);
+      toast({ title: `${sectionName} Copied!`, description: `${sectionName} copied to clipboard.` });
+    } catch (err) {
+      toast({ title: "Copy Failed", description: `Could not copy ${sectionName.toLowerCase()}.`, variant: "destructive" });
+      console.error(`Failed to copy ${sectionName}: `, err);
+    }
+  }, [toast]);
+
+  const handleCopySummary = useCallback(() => {
+    let textToCopy = "";
+    if (pageTitleFromContent) textToCopy += `Title: ${pageTitleFromContent}\n\n`;
+    if (summaryData?.summary) textToCopy += summaryData.summary;
+    handleCopySection(textToCopy || null, "Summary");
+  }, [summaryData, pageTitleFromContent, handleCopySection]);
+
+  const handleCopySentiment = useCallback(() => {
+    if (!sentimentData) {
+      handleCopySection(null, "Sentiment");
+      return;
+    }
+    const textToCopy = `Overall Sentiment: ${sentimentData.sentiment}\nScore: ${sentimentData.score.toFixed(2)}\nExplanation: ${sentimentData.explanation}`;
+    handleCopySection(textToCopy, "Sentiment Analysis");
+  }, [sentimentData, handleCopySection]);
+  
+  const handleCopyWordCloud = useCallback(() => {
+    if (!wordCloudData || wordCloudData.length === 0) {
+        handleCopySection(null, "Word Cloud");
+        return;
+    }
+    const textToCopy = wordCloudData.map(item => `${item.text} (value: ${item.value})`).join('\n');
+    handleCopySection(textToCopy, "Word Cloud");
+  }, [wordCloudData, handleCopySection]);
+
+  const handleCopyKeyPoints = useCallback(() => {
+    if (!keyPointsData) {
+      handleCopySection(null, "Key Points");
+      return;
+    }
+    let textToCopy = "";
+    if (keyPointsData.keyPoints?.length > 0) {
+      textToCopy += "Key Discussion Points:\n";
+      keyPointsData.keyPoints.forEach(point => textToCopy += `- ${point}\n`);
+      textToCopy += "\n";
+    }
+    if (keyPointsData.quotes?.length > 0) {
+      textToCopy += "Key Quotes:\n";
+      keyPointsData.quotes.forEach(quote => textToCopy += `> "${quote}"\n\n`);
+    }
+    handleCopySection(textToCopy.trim() || null, "Key Points & Quotes");
+  }, [keyPointsData, handleCopySection]);
+
+  const handleCopyLinks = useCallback(() => {
+    if (!linksData || linksData.length === 0) {
+      handleCopySection(null, "Links");
+      return;
+    }
+    const textToCopy = linksData.map((linkItem, index) => `${index + 1}. ${linkItem.url}\n   Context: ${linkItem.context}`).join('\n\n');
+    handleCopySection(textToCopy, "Contextualized Links");
+  }, [linksData, handleCopySection]);
 
   return (
     <>
@@ -317,14 +380,14 @@ export default function VerbalInsightsPage() {
             style={{
               position: 'fixed',
               inset: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.6)', // Semi-transparent dark overlay
+              backgroundColor: 'rgba(0, 0, 0, 0.6)', 
               zIndex: 1, 
             }}
           />
         </>
       )}
 
-      <div className="min-h-screen container mx-auto px-4 py-8 relative z-10"> {/* Content wrapper on top */}
+      <div className="min-h-screen container mx-auto px-4 py-8 relative z-10">
         <UrlInputForm 
           onSubmit={(newUrl) => { setUrl(newUrl); handleUrlSubmit(newUrl); }} 
           isLoading={isLoadingUrl} 
@@ -352,9 +415,6 @@ export default function VerbalInsightsPage() {
 
         {analysisInitiated && !urlError && !isLoadingUrl && (
           <>
-            {/* The dedicated header image display section is removed */}
-            {/* isLoadingHeaderImage logic for a placeholder is also removed */}
-            
             <div ref={actionsCardWrapperRef}>
               <ActionButtons 
                 onRefresh={handleRefreshAnalysis}
@@ -368,7 +428,13 @@ export default function VerbalInsightsPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-              <AnalysisSection title="Discussion Summary" icon={FileText} isLoading={isLoadingSummary} error={errorSummary}>
+              <AnalysisSection 
+                title="Discussion Summary" 
+                icon={FileText} 
+                isLoading={isLoadingSummary} 
+                error={errorSummary}
+                onCopy={summaryData?.summary ? handleCopySummary : undefined}
+              >
                 {summaryData?.summary ? (
                   <>
                   {pageTitleFromContent && <div className="text-sm text-muted-foreground mb-2"><strong>Original Page Title:</strong> {pageTitleFromContent}</div>}
@@ -379,7 +445,13 @@ export default function VerbalInsightsPage() {
                 )}
               </AnalysisSection>
 
-              <AnalysisSection title="Sentiment Analysis" icon={getSentimentIcon(sentimentData?.sentiment)} isLoading={isLoadingSentiment} error={errorSentiment}>
+              <AnalysisSection 
+                title="Sentiment Analysis" 
+                icon={getSentimentIcon(sentimentData?.sentiment)} 
+                isLoading={isLoadingSentiment} 
+                error={errorSentiment}
+                onCopy={sentimentData ? handleCopySentiment : undefined}
+              >
                 {sentimentData ? (
                   <div className="space-y-2">
                     <div><strong>Overall Sentiment:</strong> <Badge variant={sentimentData.sentiment.toLowerCase().includes('positive') ? 'default' : sentimentData.sentiment.toLowerCase().includes('negative') ? 'destructive' : 'secondary'}>{sentimentData.sentiment}</Badge></div>
@@ -391,11 +463,25 @@ export default function VerbalInsightsPage() {
                 )}
               </AnalysisSection>
               
-              <AnalysisSection title="Word Cloud" icon={Tags} isLoading={isLoadingWordCloud} error={errorWordCloud} className="md:col-span-2">
+              <AnalysisSection 
+                title="Word Cloud" 
+                icon={Tags} 
+                isLoading={isLoadingWordCloud} 
+                error={errorWordCloud} 
+                className="md:col-span-2"
+                onCopy={(wordCloudData && wordCloudData.length > 0) ? handleCopyWordCloud : undefined}
+              >
                 <WordCloudDisplay data={wordCloudData} />
               </AnalysisSection>
 
-              <AnalysisSection title="Key Discussion Points & Quotes" icon={ListChecks} isLoading={isLoadingKeyPoints} error={errorKeyPoints} className="md:col-span-2">
+              <AnalysisSection 
+                title="Key Discussion Points & Quotes" 
+                icon={ListChecks} 
+                isLoading={isLoadingKeyPoints} 
+                error={errorKeyPoints} 
+                className="md:col-span-2"
+                onCopy={(keyPointsData && (keyPointsData.keyPoints?.length > 0 || keyPointsData.quotes?.length > 0)) ? handleCopyKeyPoints : undefined}
+              >
                 {keyPointsData ? (
                   <div className="space-y-4">
                     {keyPointsData.keyPoints && keyPointsData.keyPoints.length > 0 && (
@@ -425,7 +511,14 @@ export default function VerbalInsightsPage() {
                 )}
               </AnalysisSection>
 
-              <AnalysisSection title="Contextualized Links" icon={LinkIcon} isLoading={isLoadingLinks} error={errorLinks} className="md:col-span-2">
+              <AnalysisSection 
+                title="Contextualized Links" 
+                icon={LinkIcon} 
+                isLoading={isLoadingLinks} 
+                error={errorLinks} 
+                className="md:col-span-2"
+                onCopy={(linksData && linksData.length > 0) ? handleCopyLinks : undefined}
+              >
                 {linksData && linksData.length > 0 ? (
                   <ul className="space-y-4">
                     {linksData.map((linkItem, index) => (
@@ -448,4 +541,3 @@ export default function VerbalInsightsPage() {
     </>
   );
 }
-
