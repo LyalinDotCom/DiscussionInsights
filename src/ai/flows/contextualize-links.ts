@@ -17,7 +17,7 @@ const ContextualizeLinksInputSchema = z.object({
 export type ContextualizeLinksInput = z.infer<typeof ContextualizeLinksInputSchema>;
 
 const ContextualizeLinksOutputSchema = z.array(z.object({
-  url: z.string().url().describe('The URL extracted from the page.'),
+  url: z.string().describe('The URL extracted from the page.'),
   context: z.string().describe('The context of the URL within the page content.'),
 })).describe('A list of URLs with their context.');
 export type ContextualizeLinksOutput = z.infer<typeof ContextualizeLinksOutputSchema>;
