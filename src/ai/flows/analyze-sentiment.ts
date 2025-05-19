@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -31,12 +32,20 @@ const prompt = ai.definePrompt({
   name: 'analyzeSentimentPrompt',
   input: {schema: AnalyzeSentimentInputSchema},
   output: {schema: AnalyzeSentimentOutputSchema},
-  prompt: `Analyze the sentiment of the following text:
+  prompt: `You are an expert sentiment analysis AI. Analyze the sentiment of the following text.
 
-  {{text}}
+Text to Analyze:
+{{text}}
 
-  Provide the overall sentiment (positive, negative, or neutral), a sentiment score between -1 and 1, and a brief explanation for your analysis.
-  Format the output in JSON format according to the schema description.
+Sentiment Analysis Guidelines:
+1.  **Overall Sentiment:** Determine if the text is predominantly 'positive', 'negative', or 'neutral'.
+    *   **Positive:** Expresses happiness, approval, satisfaction, constructive feedback, or positive emotions.
+    *   **Negative:** Expresses dissatisfaction, criticism, anger, sadness, problems, or negative emotions.
+    *   **Neutral:** Presents factual information, objective statements, questions, or lacks strong emotional tone.
+2.  **Sentiment Score:** Provide a numerical score from -1.0 (most negative) to 1.0 (most positive). 0.0 represents neutral. A score around +/- 0.5 indicates moderate sentiment, while scores closer to +/- 1.0 indicate strong sentiment.
+3.  **Explanation:** Briefly explain your reasoning (1-2 sentences). Highlight specific words, phrases, or the overall context that led to your sentiment classification and score. Focus on objective interpretation of the language used.
+
+Format the output in JSON format according to the schema description.
   `,
 });
 
@@ -51,3 +60,4 @@ const analyzeSentimentFlow = ai.defineFlow(
     return output!;
   }
 );
+

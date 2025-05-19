@@ -31,12 +31,12 @@ type AllAnalysisData = {
 };
 
 export default function VerbalInsightsPage() {
-  const [url, setUrl] = useState('');
+  const [url, setUrl] = useState(''); // Current URL in the input field
   const [fetchedPageContent, setFetchedPageContent] = useState<string | null>(null);
   const [isLoadingUrl, setIsLoadingUrl] = useState(false);
   const [urlError, setUrlError] = useState<string | null>(null);
   const [analysisInitiated, setAnalysisInitiated] = useState(false);
-  const [displayUrl, setDisplayUrl] = useState<string | null>(null);
+  const [displayUrl, setDisplayUrl] = useState<string | null>(null); // URL that was actually fetched (after redirects)
 
   // Analysis states
   const [headerImageData, setHeaderImageData] = useState<GenerateHeaderImageOutput | null>(null);
@@ -62,11 +62,11 @@ export default function VerbalInsightsPage() {
   const [pageTitleFromContent, setPageTitleFromContent] = useState<string | null>(null);
 
 
-  const resetAllStates = () => {
+  const resetAllStates = useCallback(() => {
     setFetchedPageContent(null);
     setUrlError(null);
     setAnalysisInitiated(false);
-    setDisplayUrl(null);
+    // setDisplayUrl(null); // Don't reset displayUrl here, handleUrlSubmit will set it
 
     setHeaderImageData(null); setIsLoadingHeaderImage(false); setErrorHeaderImage(null);
     setSummaryData(null); setIsLoadingSummary(false); setErrorSummary(null);
@@ -74,15 +74,17 @@ export default function VerbalInsightsPage() {
     setSentimentData(null); setIsLoadingSentiment(false); setErrorSentiment(null);
     setLinksData(null); setIsLoadingLinks(false); setErrorLinks(null);
     setPageTitleFromContent(null);
-  };
+  }, []);
 
-  const handleUrlSubmit = async (submittedUrl: string) => {
+  const handleUrlSubmit = useCallback(async (submittedUrl: string) => {
+    if (!submittedUrl) return;
+
     resetAllStates();
-    setUrl(submittedUrl);
+    // setUrl(submittedUrl); // Only set if triggered from form, refresh uses existing url/displayUrl
     setIsLoadingUrl(true);
     setUrlError(null);
     setAnalysisInitiated(true);
-    setDisplayUrl(submittedUrl);
+    setDisplayUrl(submittedUrl); // Tentatively set display URL
 
     const result = await fetchUrlContent(submittedUrl);
     setIsLoadingUrl(false);
@@ -90,12 +92,13 @@ export default function VerbalInsightsPage() {
     if (result.error) {
       setUrlError(result.error);
       setFetchedPageContent(null);
+      setDisplayUrl(submittedUrl); // Keep the submitted URL on error for clarity
     } else if (result.content) {
       setFetchedPageContent(result.content);
-      if (result.finalUrl && result.finalUrl !== submittedUrl) {
-        setDisplayUrl(result.finalUrl); // Update display URL if redirected
-      }
-      // Try to extract title from <title> tag
+      const finalUrl = result.finalUrl || submittedUrl;
+      setDisplayUrl(finalUrl); // Update display URL if redirected
+      setUrl(finalUrl); // Sync input field with the fetched URL
+
       const titleMatch = result.content.match(/<title>(.*?)<\/title>/i);
       if (titleMatch && titleMatch[1]) {
         setPageTitleFromContent(titleMatch[1].trim());
@@ -103,19 +106,19 @@ export default function VerbalInsightsPage() {
     } else {
       setUrlError("Failed to fetch content or content was empty.");
       setFetchedPageContent(null);
+      setDisplayUrl(submittedUrl);
     }
-  };
+  }, [resetAllStates]);
   
   const extractPageTitleFromContent = (htmlContent: string): string | null => {
     const titleMatch = htmlContent.match(/<title[^>]*>([^<]+)<\/title>/i);
     return titleMatch && titleMatch[1] ? titleMatch[1].trim() : null;
   };
 
-
   useEffect(() => {
-    if (fetchedPageContent && url) {
+    if (fetchedPageContent && displayUrl) { // Ensure displayUrl is set
       const contentToAnalyze = fetchedPageContent; 
-      const currentDisplayUrl = displayUrl || url; 
+      const currentDisplayUrl = displayUrl; 
 
       setIsLoadingHeaderImage(true);
       generateHeaderImage({ text: contentToAnalyze.substring(0, 1000) }) 
@@ -147,8 +150,7 @@ export default function VerbalInsightsPage() {
         .catch(err => setErrorLinks(err.message || "Failed to contextualize links."))
         .finally(() => setIsLoadingLinks(false));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchedPageContent, url]); 
+  }, [fetchedPageContent, displayUrl]); 
 
   const getSentimentIcon = (sentiment?: string) => {
     if (!sentiment) return MessageSquareText;
@@ -163,7 +165,7 @@ export default function VerbalInsightsPage() {
     
     const analysisTimestamp = new Date().toISOString();
     let markdown = `# Verbal Insights Analysis\n\n`;
-    markdown += `**Analyzed URL:** ${displayUrl || url}\n`;
+    markdown += `**Analyzed URL:** ${displayUrl || url}\n`; // Use displayUrl first
     markdown += `**Analysis Timestamp:** ${analysisTimestamp}\n\n`;
 
     if (summaryData?.summary) {
@@ -207,10 +209,20 @@ export default function VerbalInsightsPage() {
   const hasAnyData = !!(summaryData || keyPointsData || sentimentData || linksData || headerImageData);
   const isAnyLoading = isLoadingUrl || isLoadingHeaderImage || isLoadingSummary || isLoadingKeyPoints || isLoadingSentiment || isLoadingLinks;
 
+  const handleRefreshAnalysis = () => {
+    const urlToRefresh = displayUrl || url; // Prefer displayUrl (actual fetched URL)
+    if (urlToRefresh) {
+      handleUrlSubmit(urlToRefresh);
+    }
+  };
 
   return (
     <div className="min-h-screen container mx-auto px-4 py-8">
-      <UrlInputForm onSubmit={handleUrlSubmit} isLoading={isLoadingUrl} />
+      <UrlInputForm 
+        onSubmit={(newUrl) => { setUrl(newUrl); handleUrlSubmit(newUrl); }} 
+        isLoading={isLoadingUrl} 
+        initialUrl={url} // Pass current url to form for its input field state
+      />
 
       {urlError && (
         <Alert variant="destructive" className="mb-6">
@@ -250,7 +262,9 @@ export default function VerbalInsightsPage() {
             getAnalysisDataAsMarkdown={getAnalysisDataAsMarkdown} 
             pageTitle={pageTitleFromContent || (displayUrl ? new URL(displayUrl).hostname : null)}
             hasData={hasAnyData}
-            isLoading={isAnyLoading && !hasAnyData} 
+            isLoading={isAnyLoading || isLoadingUrl} 
+            onRefresh={handleRefreshAnalysis}
+            canRefresh={!!(displayUrl || url) && !isLoadingUrl && !isAnyLoading}
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
@@ -258,7 +272,7 @@ export default function VerbalInsightsPage() {
               {summaryData?.summary ? (
                 <>
                 {pageTitleFromContent && <div className="text-sm text-muted-foreground mb-2"><strong>Original Page Title:</strong> {pageTitleFromContent}</div>}
-                <p className="whitespace-pre-wrap">{summaryData.summary}</p>
+                <div className="whitespace-pre-wrap">{summaryData.summary}</div>
                 </>
               ) : (
                 !isLoadingSummary && <p>No summary available.</p>
@@ -329,6 +343,3 @@ export default function VerbalInsightsPage() {
     </div>
   );
 }
-
-
-    

@@ -1,18 +1,29 @@
+
 "use client";
 
 import { Button } from '@/components/ui/button';
-import { Copy, Download } from 'lucide-react';
+import { Copy, Download, RefreshCw } from 'lucide-react'; // Added RefreshCw
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
 interface ActionButtonsProps {
   getAnalysisDataAsMarkdown: () => string;
   pageTitle?: string | null;
   hasData: boolean;
-  isLoading: boolean; // To disable while any initial fetch or all analyses are running
+  isLoading: boolean; // Overall loading state (fetching URL or any AI flow)
+  onRefresh: () => void; // Callback to trigger refresh/re-analysis
+  canRefresh: boolean; // Is there a URL that can be refreshed?
 }
 
-export function ActionButtons({ getAnalysisDataAsMarkdown, pageTitle, hasData, isLoading }: ActionButtonsProps) {
+export function ActionButtons({ 
+  getAnalysisDataAsMarkdown, 
+  pageTitle, 
+  hasData, 
+  isLoading,
+  onRefresh,
+  canRefresh
+}: ActionButtonsProps) {
   const { toast } = useToast();
 
   const handleCopyToClipboard = async () => {
@@ -58,31 +69,49 @@ export function ActionButtons({ getAnalysisDataAsMarkdown, pageTitle, hasData, i
     }
   };
 
-  const isDisabled = isLoading || !hasData;
+  const exportButtonsDisabled = isLoading || !hasData;
 
   return (
     <Card className="mt-8 shadow-lg">
       <CardHeader>
-        <CardTitle className="text-xl font-semibold">Export Analysis</CardTitle>
+        <CardTitle className="text-xl font-semibold">Actions</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-col sm:flex-row gap-4">
-          <Button onClick={handleCopyToClipboard} variant="outline" className="flex-1" disabled={isDisabled} aria-label="Copy analysis to clipboard">
-            <Copy className="mr-2 h-4 w-4" /> Copy as Markdown
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Button 
+            onClick={onRefresh} 
+            variant="outline" 
+            className="flex-1" 
+            disabled={!canRefresh || isLoading} 
+            aria-label="Refresh analysis for the current URL"
+          >
+            <RefreshCw className="mr-2 h-4 w-4" /> Re-Analyze
           </Button>
-          <Button onClick={handleDownloadMarkdown} variant="outline" className="flex-1" disabled={isDisabled} aria-label="Download analysis as Markdown file">
-            <Download className="mr-2 h-4 w-4" /> Download .md File
+          <Button 
+            onClick={handleCopyToClipboard} 
+            variant="outline" 
+            className="flex-1" 
+            disabled={exportButtonsDisabled} 
+            aria-label="Copy analysis to clipboard"
+          >
+            <Copy className="mr-2 h-4 w-4" /> Copy Markdown
+          </Button>
+          <Button 
+            onClick={handleDownloadMarkdown} 
+            variant="outline" 
+            className="flex-1" 
+            disabled={exportButtonsDisabled} 
+            aria-label="Download analysis as Markdown file"
+          >
+            <Download className="mr-2 h-4 w-4" /> Download .md
           </Button>
         </div>
-        {isDisabled && !isLoading && (
-             <p className="mt-2 text-sm text-muted-foreground text-center">
-                Analyze a URL to enable export options.
+        {exportButtonsDisabled && !isLoading && !hasData && (
+             <p className="mt-3 text-sm text-muted-foreground text-center sm:col-span-3">
+                Analyze a URL to enable copy/download options.
             </p>
         )}
       </CardContent>
     </Card>
   );
 }
-
-// Renamed Card related components to avoid conflicts if page uses them
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";

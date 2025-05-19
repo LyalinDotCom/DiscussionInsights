@@ -1,28 +1,35 @@
+
 "use client";
 
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Globe, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 
 interface UrlInputFormProps {
   onSubmit: (url: string) => void;
   isLoading: boolean;
+  initialUrl?: string; // To sync with parent's URL state for refresh scenarios
 }
 
-export function UrlInputForm({ onSubmit, isLoading }: UrlInputFormProps) {
-  const [url, setUrl] = useState('');
+export function UrlInputForm({ onSubmit, isLoading, initialUrl = '' }: UrlInputFormProps) {
+  const [currentUrl, setCurrentUrl] = useState(initialUrl);
+
+  useEffect(() => {
+    // Keep local state in sync if parent's URL changes (e.g., after refresh uses displayUrl)
+    setCurrentUrl(initialUrl);
+  }, [initialUrl]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (url.trim()) {
-      // Basic URL validation (starts with http/https)
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        onSubmit('https://' + url.trim());
-      } else {
-        onSubmit(url.trim());
+    if (currentUrl.trim()) {
+      let processedUrl = currentUrl.trim();
+      if (!processedUrl.startsWith('http://') && !processedUrl.startsWith('https://')) {
+        processedUrl = 'https://' + processedUrl;
       }
+      onSubmit(processedUrl);
     }
   };
 
@@ -41,8 +48,8 @@ export function UrlInputForm({ onSubmit, isLoading }: UrlInputFormProps) {
             <Input
               type="url"
               placeholder="e.g., https://example.com/forum-post"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
+              value={currentUrl}
+              onChange={(e) => setCurrentUrl(e.target.value)}
               className="pl-10 text-base h-12 rounded-md focus:ring-2 focus:ring-primary"
               required
               disabled={isLoading}
@@ -51,7 +58,7 @@ export function UrlInputForm({ onSubmit, isLoading }: UrlInputFormProps) {
           </div>
           <Button 
             type="submit" 
-            disabled={isLoading || !url.trim()} 
+            disabled={isLoading || !currentUrl.trim()} 
             className={cn(
               "w-full sm:w-auto px-6 h-12 text-base rounded-md transition-all duration-150 ease-in-out",
               "hover:shadow-lg focus:ring-2 focus:ring-primary focus:ring-offset-2",
@@ -66,5 +73,3 @@ export function UrlInputForm({ onSubmit, isLoading }: UrlInputFormProps) {
     </Card>
   );
 }
-// Renamed Card related components to avoid conflicts if page uses them
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
