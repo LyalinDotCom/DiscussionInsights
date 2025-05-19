@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -113,11 +114,11 @@ export default function VerbalInsightsPage() {
 
   useEffect(() => {
     if (fetchedPageContent && url) {
-      const contentToAnalyze = fetchedPageContent; // Use the fetched content
-      const currentDisplayUrl = displayUrl || url; // Use final URL if available
+      const contentToAnalyze = fetchedPageContent; 
+      const currentDisplayUrl = displayUrl || url; 
 
       setIsLoadingHeaderImage(true);
-      generateHeaderImage({ text: contentToAnalyze.substring(0, 1000) }) // Use a snippet for header image
+      generateHeaderImage({ text: contentToAnalyze.substring(0, 1000) }) 
         .then(setHeaderImageData)
         .catch(err => setErrorHeaderImage(err.message || "Failed to generate header image."))
         .finally(() => setIsLoadingHeaderImage(false));
@@ -141,13 +142,13 @@ export default function VerbalInsightsPage() {
         .finally(() => setIsLoadingSentiment(false));
 
       setIsLoadingLinks(true);
-      contextualizeLinks({ pageContent: contentToAnalyze })
+      contextualizeLinks({ pageContent: contentToAnalyze, sourceUrl: currentDisplayUrl })
         .then(setLinksData)
         .catch(err => setErrorLinks(err.message || "Failed to contextualize links."))
         .finally(() => setIsLoadingLinks(false));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchedPageContent, url]); // displayUrl is derived, not a direct dependency for re-triggering analysis
+  }, [fetchedPageContent, url]); 
 
   const getSentimentIcon = (sentiment?: string) => {
     if (!sentiment) return MessageSquareText;
@@ -249,14 +250,14 @@ export default function VerbalInsightsPage() {
             getAnalysisDataAsMarkdown={getAnalysisDataAsMarkdown} 
             pageTitle={pageTitleFromContent || (displayUrl ? new URL(displayUrl).hostname : null)}
             hasData={hasAnyData}
-            isLoading={isAnyLoading && !hasAnyData} // Disable if actively loading AND no data yet
+            isLoading={isAnyLoading && !hasAnyData} 
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
             <AnalysisSection title="Discussion Summary" icon={FileText} isLoading={isLoadingSummary} error={errorSummary}>
               {summaryData?.summary ? (
                 <>
-                {pageTitleFromContent && <p className="text-sm text-muted-foreground mb-2"><strong>Original Page Title:</strong> {pageTitleFromContent}</p>}
+                {pageTitleFromContent && <div className="text-sm text-muted-foreground mb-2"><strong>Original Page Title:</strong> {pageTitleFromContent}</div>}
                 <p className="whitespace-pre-wrap">{summaryData.summary}</p>
                 </>
               ) : (
@@ -268,8 +269,8 @@ export default function VerbalInsightsPage() {
               {sentimentData ? (
                 <div className="space-y-2">
                   <div><strong>Overall Sentiment:</strong> <Badge variant={sentimentData.sentiment.toLowerCase().includes('positive') ? 'default' : sentimentData.sentiment.toLowerCase().includes('negative') ? 'destructive' : 'secondary'}>{sentimentData.sentiment}</Badge></div>
-                  <p><strong>Score:</strong> {sentimentData.score.toFixed(2)}</p>
-                  <p className="text-sm text-muted-foreground"><strong>Explanation:</strong> {sentimentData.explanation}</p>
+                  <div><strong>Score:</strong> {sentimentData.score.toFixed(2)}</div>
+                  <div className="text-sm text-muted-foreground"><strong>Explanation:</strong> {sentimentData.explanation}</div>
                 </div>
               ) : (
                 !isLoadingSentiment && <p>No sentiment analysis available.</p>
