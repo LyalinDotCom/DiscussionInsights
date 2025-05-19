@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -11,7 +10,9 @@ import { LoadingIndicator } from '@/components/verbal-insights/LoadingIndicator'
 import { fetchUrlContent } from '@/lib/actions';
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, FileText, ListChecks, MessageSquareText, Link as LinkIcon, Smile, Frown, Meh, Image as ImageIcon, QuoteIcon } from 'lucide-react';
+import { AlertCircle, FileText, ListChecks, MessageSquareText, Link as LinkIcon, Smile, Frown, Meh, Image as ImageIcon, QuoteIcon, Tags } from 'lucide-react'; // Added Tags icon
+import { WordCloudDisplay } from '@/components/verbal-insights/WordCloudDisplay';
+
 
 // AI Flow Imports
 import { summarizeDiscussion, type SummarizeDiscussionOutput } from '@/ai/flows/summarize-discussion';
@@ -19,16 +20,8 @@ import { extractKeyPoints, type ExtractKeyPointsOutput } from '@/ai/flows/extrac
 import { analyzeSentiment, type AnalyzeSentimentOutput } from '@/ai/flows/analyze-sentiment';
 import { contextualizeLinks, type ContextualizeLinksOutput } from '@/ai/flows/contextualize-links';
 import { generateHeaderImage, type GenerateHeaderImageOutput } from '@/ai/flows/generate-header-image';
+import { generateWordCloud, type GenerateWordCloudOutput } from '@/ai/flows/generate-word-cloud';
 
-type AllAnalysisData = {
-  summary: SummarizeDiscussionOutput | null;
-  keyPoints: ExtractKeyPointsOutput | null;
-  sentiment: AnalyzeSentimentOutput | null;
-  links: ContextualizeLinksOutput | null;
-  headerImage: GenerateHeaderImageOutput | null;
-  sourceUrl: string | null;
-  pageTitle?: string | null; 
-};
 
 export default function VerbalInsightsPage() {
   const [url, setUrl] = useState(''); // Current URL in the input field
@@ -61,6 +54,10 @@ export default function VerbalInsightsPage() {
   
   const [pageTitleFromContent, setPageTitleFromContent] = useState<string | null>(null);
 
+  const [wordCloudData, setWordCloudData] = useState<GenerateWordCloudOutput | null>(null);
+  const [isLoadingWordCloud, setIsLoadingWordCloud] = useState(false);
+  const [errorWordCloud, setErrorWordCloud] = useState<string | null>(null);
+
 
   const resetAllStates = useCallback(() => {
     setFetchedPageContent(null);
@@ -73,6 +70,7 @@ export default function VerbalInsightsPage() {
     setKeyPointsData(null); setIsLoadingKeyPoints(false); setErrorKeyPoints(null);
     setSentimentData(null); setIsLoadingSentiment(false); setErrorSentiment(null);
     setLinksData(null); setIsLoadingLinks(false); setErrorLinks(null);
+    setWordCloudData(null); setIsLoadingWordCloud(false); setErrorWordCloud(null);
     setPageTitleFromContent(null);
   }, []);
 
@@ -110,13 +108,9 @@ export default function VerbalInsightsPage() {
     }
   }, [resetAllStates]);
   
-  const extractPageTitleFromContent = (htmlContent: string): string | null => {
-    const titleMatch = htmlContent.match(/<title[^>]*>([^<]+)<\/title>/i);
-    return titleMatch && titleMatch[1] ? titleMatch[1].trim() : null;
-  };
 
   useEffect(() => {
-    if (fetchedPageContent && displayUrl) { // Ensure displayUrl is set
+    if (fetchedPageContent && displayUrl) { 
       const contentToAnalyze = fetchedPageContent; 
       const currentDisplayUrl = displayUrl; 
 
@@ -149,6 +143,12 @@ export default function VerbalInsightsPage() {
         .then(setLinksData)
         .catch(err => setErrorLinks(err.message || "Failed to contextualize links."))
         .finally(() => setIsLoadingLinks(false));
+      
+      setIsLoadingWordCloud(true);
+      generateWordCloud({ textContent: contentToAnalyze })
+        .then(setWordCloudData)
+        .catch(err => setErrorWordCloud(err.message || "Failed to generate word cloud."))
+        .finally(() => setIsLoadingWordCloud(false));
     }
   }, [fetchedPageContent, displayUrl]); 
 
@@ -165,7 +165,7 @@ export default function VerbalInsightsPage() {
     
     const analysisTimestamp = new Date().toISOString();
     let markdown = `# Verbal Insights Analysis\n\n`;
-    markdown += `**Analyzed URL:** ${displayUrl || url}\n`; // Use displayUrl first
+    markdown += `**Analyzed URL:** ${displayUrl || url}\n`; 
     markdown += `**Analysis Timestamp:** ${analysisTimestamp}\n\n`;
 
     if (summaryData?.summary) {
@@ -174,6 +174,12 @@ export default function VerbalInsightsPage() {
          markdown += `**Title:** ${pageTitleFromContent}\n\n`;
       }
       markdown += `${summaryData.summary}\n\n`;
+    }
+
+    if (wordCloudData && wordCloudData.length > 0) {
+      markdown += `## Key Terms (Word Cloud)\n`;
+      const topTerms = wordCloudData.slice(0, 15).map(item => `${item.text} (value: ${item.value})`);
+      markdown += topTerms.join(', ') + '\n\n';
     }
 
     if (keyPointsData) {
@@ -204,13 +210,13 @@ export default function VerbalInsightsPage() {
       markdown += `\n`;
     }
     return markdown;
-  }, [analysisInitiated, displayUrl, url, summaryData, keyPointsData, sentimentData, linksData, pageTitleFromContent]);
+  }, [analysisInitiated, displayUrl, url, summaryData, keyPointsData, sentimentData, linksData, pageTitleFromContent, wordCloudData]);
 
-  const hasAnyData = !!(summaryData || keyPointsData || sentimentData || linksData || headerImageData);
-  const isAnyLoading = isLoadingUrl || isLoadingHeaderImage || isLoadingSummary || isLoadingKeyPoints || isLoadingSentiment || isLoadingLinks;
+  const hasAnyData = !!(summaryData || keyPointsData || sentimentData || linksData || headerImageData || wordCloudData);
+  const isAnyLoading = isLoadingUrl || isLoadingHeaderImage || isLoadingSummary || isLoadingKeyPoints || isLoadingSentiment || isLoadingLinks || isLoadingWordCloud;
 
   const handleRefreshAnalysis = () => {
-    const urlToRefresh = displayUrl || url; // Prefer displayUrl (actual fetched URL)
+    const urlToRefresh = displayUrl || url; 
     if (urlToRefresh) {
       handleUrlSubmit(urlToRefresh);
     }
@@ -221,7 +227,7 @@ export default function VerbalInsightsPage() {
       <UrlInputForm 
         onSubmit={(newUrl) => { setUrl(newUrl); handleUrlSubmit(newUrl); }} 
         isLoading={isLoadingUrl} 
-        initialUrl={url} // Pass current url to form for its input field state
+        initialUrl={url} 
       />
 
       {urlError && (
@@ -289,6 +295,10 @@ export default function VerbalInsightsPage() {
               ) : (
                 !isLoadingSentiment && <p>No sentiment analysis available.</p>
               )}
+            </AnalysisSection>
+            
+            <AnalysisSection title="Word Cloud" icon={Tags} isLoading={isLoadingWordCloud} error={errorWordCloud} className="md:col-span-2">
+              <WordCloudDisplay data={wordCloudData} />
             </AnalysisSection>
 
             <AnalysisSection title="Key Discussion Points & Quotes" icon={ListChecks} isLoading={isLoadingKeyPoints} error={errorKeyPoints} className="md:col-span-2">
