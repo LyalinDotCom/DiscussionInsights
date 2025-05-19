@@ -34,7 +34,7 @@ const generateHeaderImageFlow = ai.defineFlow(
   async input => {
     const {media} = await ai.generate({
       model: 'googleai/gemini-2.0-flash-exp',
-      prompt: `Generate a wide header image inspired by the following text: ${input.text}`,
+      prompt: `Generate an artistic and abstract wide header image that visually represents the mood and themes of the following text, without directly including any text from the passage in the image: ${input.text}`,
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
       },
