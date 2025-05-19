@@ -1,17 +1,19 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import NextImage from 'next/image'; // Renamed to avoid conflict with local Image
 import { UrlInputForm } from '@/components/verbal-insights/UrlInputForm';
 import { AnalysisSection } from '@/components/verbal-insights/AnalysisSection';
 import { ActionButtons } from '@/components/verbal-insights/ActionButtons';
+import { FloatingActionButtons } from '@/components/verbal-insights/FloatingActionButtons';
 import { LoadingIndicator } from '@/components/verbal-insights/LoadingIndicator';
 import { fetchUrlContent } from '@/lib/actions';
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, FileText, ListChecks, MessageSquareText, Link as LinkIcon, Smile, Frown, Meh, Image as ImageIcon, QuoteIcon, Tags } from 'lucide-react'; // Added Tags icon
+import { AlertCircle, FileText, ListChecks, MessageSquareText, Link as LinkIcon, Smile, Frown, Meh, Image as ImageIcon, QuoteIcon, Tags } from 'lucide-react';
 import { WordCloudDisplay } from '@/components/verbal-insights/WordCloudDisplay';
+import { useToast } from '@/hooks/use-toast';
 
 
 // AI Flow Imports
@@ -24,14 +26,13 @@ import { generateWordCloud, type GenerateWordCloudOutput } from '@/ai/flows/gene
 
 
 export default function VerbalInsightsPage() {
-  const [url, setUrl] = useState(''); // Current URL in the input field
+  const [url, setUrl] = useState(''); 
   const [fetchedPageContent, setFetchedPageContent] = useState<string | null>(null);
   const [isLoadingUrl, setIsLoadingUrl] = useState(false);
   const [urlError, setUrlError] = useState<string | null>(null);
   const [analysisInitiated, setAnalysisInitiated] = useState(false);
-  const [displayUrl, setDisplayUrl] = useState<string | null>(null); // URL that was actually fetched (after redirects)
+  const [displayUrl, setDisplayUrl] = useState<string | null>(null); 
 
-  // Analysis states
   const [headerImageData, setHeaderImageData] = useState<GenerateHeaderImageOutput | null>(null);
   const [isLoadingHeaderImage, setIsLoadingHeaderImage] = useState(false);
   const [errorHeaderImage, setErrorHeaderImage] = useState<string | null>(null);
@@ -58,13 +59,16 @@ export default function VerbalInsightsPage() {
   const [isLoadingWordCloud, setIsLoadingWordCloud] = useState(false);
   const [errorWordCloud, setErrorWordCloud] = useState<string | null>(null);
 
+  const [showFloatingActions, setShowFloatingActions] = useState(false);
+  const actionsCardWrapperRef = useRef<HTMLDivElement>(null);
+
+  const { toast } = useToast();
 
   const resetAllStates = useCallback(() => {
     setFetchedPageContent(null);
     setUrlError(null);
     setAnalysisInitiated(false);
-    // setDisplayUrl(null); // Don't reset displayUrl here, handleUrlSubmit will set it
-
+    
     setHeaderImageData(null); setIsLoadingHeaderImage(false); setErrorHeaderImage(null);
     setSummaryData(null); setIsLoadingSummary(false); setErrorSummary(null);
     setKeyPointsData(null); setIsLoadingKeyPoints(false); setErrorKeyPoints(null);
@@ -78,11 +82,10 @@ export default function VerbalInsightsPage() {
     if (!submittedUrl) return;
 
     resetAllStates();
-    // setUrl(submittedUrl); // Only set if triggered from form, refresh uses existing url/displayUrl
     setIsLoadingUrl(true);
     setUrlError(null);
     setAnalysisInitiated(true);
-    setDisplayUrl(submittedUrl); // Tentatively set display URL
+    setDisplayUrl(submittedUrl); 
 
     const result = await fetchUrlContent(submittedUrl);
     setIsLoadingUrl(false);
@@ -90,12 +93,12 @@ export default function VerbalInsightsPage() {
     if (result.error) {
       setUrlError(result.error);
       setFetchedPageContent(null);
-      setDisplayUrl(submittedUrl); // Keep the submitted URL on error for clarity
+      setDisplayUrl(submittedUrl); 
     } else if (result.content) {
       setFetchedPageContent(result.content);
       const finalUrl = result.finalUrl || submittedUrl;
-      setDisplayUrl(finalUrl); // Update display URL if redirected
-      setUrl(finalUrl); // Sync input field with the fetched URL
+      setDisplayUrl(finalUrl); 
+      setUrl(finalUrl); 
 
       const titleMatch = result.content.match(/<title>(.*?)<\/title>/i);
       if (titleMatch && titleMatch[1]) {
@@ -222,6 +225,75 @@ export default function VerbalInsightsPage() {
     }
   };
 
+  const handleCopyToClipboard = useCallback(async () => {
+    if (!hasAnyData) {
+        toast({ title: "No Data", description: "Please analyze a URL first to generate data.", variant: "destructive" });
+        return;
+    }
+    const markdownData = getAnalysisDataAsMarkdown();
+    try {
+      await navigator.clipboard.writeText(markdownData);
+      toast({ title: "Copied to Clipboard!", description: "Analysis results (Markdown) copied successfully." });
+    } catch (err) {
+      toast({ title: "Copy Failed", description: "Could not copy to clipboard. Your browser might not support this feature or permissions are denied.", variant: "destructive" });
+      console.error('Failed to copy: ', err);
+    }
+  }, [getAnalysisDataAsMarkdown, hasAnyData, toast]);
+
+  const handleDownloadMarkdown = useCallback(() => {
+    if (!hasAnyData) {
+        toast({ title: "No Data", description: "Please analyze a URL first to generate data.", variant: "destructive" });
+        return;
+    }
+    const markdownData = getAnalysisDataAsMarkdown();
+    const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const safePageTitle = pageTitleFromContent ? pageTitleFromContent.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 50) : 'analysis';
+    const filename = `verbal_insights_${safePageTitle}_${timestamp}.md`;
+    
+    const blob = new Blob([markdownData], { type: 'text/markdown;charset=utf-8;' });
+    const link = document.createElement("a");
+
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast({ title: "Download Started", description: `${filename} is downloading.` });
+    } else {
+      toast({ title: "Download Failed", description: "Your browser does not support automatic downloads.", variant: "destructive" });
+    }
+  }, [getAnalysisDataAsMarkdown, hasAnyData, pageTitleFromContent, toast]);
+
+  const exportButtonsDisabled = isAnyLoading || !hasAnyData;
+  const canRefresh = !!(displayUrl || url) && !isLoadingUrl && !isAnyLoading;
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (actionsCardWrapperRef.current) {
+        const rect = actionsCardWrapperRef.current.getBoundingClientRect();
+        // Show floating buttons if the bottom of the original actions card is above 20% of the viewport height
+        // or completely off-screen above.
+        if (rect.bottom < window.innerHeight * 0.20) {
+          setShowFloatingActions(true);
+        } else {
+          setShowFloatingActions(false);
+        }
+      } else {
+        setShowFloatingActions(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll(); // Initial check
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [analysisInitiated, isAnyLoading, hasAnyData]); // Re-evaluate on these state changes
+
+
   return (
     <div className="min-h-screen container mx-auto px-4 py-8">
       <UrlInputForm 
@@ -238,6 +310,16 @@ export default function VerbalInsightsPage() {
       )}
 
       {isLoadingUrl && <LoadingIndicator text="Fetching URL content..."/>}
+
+      <FloatingActionButtons
+        onRefresh={handleRefreshAnalysis}
+        onCopyToClipboard={handleCopyToClipboard}
+        onDownloadMarkdown={handleDownloadMarkdown}
+        canRefresh={canRefresh}
+        exportButtonsDisabled={exportButtonsDisabled}
+        isLoading={isAnyLoading || isLoadingUrl}
+        isVisible={showFloatingActions && hasAnyData}
+      />
 
       {analysisInitiated && !urlError && !isLoadingUrl && (
         <>
@@ -263,15 +345,17 @@ export default function VerbalInsightsPage() {
             </AnalysisSection>
           )}
 
-
-          <ActionButtons 
-            getAnalysisDataAsMarkdown={getAnalysisDataAsMarkdown} 
-            pageTitle={pageTitleFromContent || (displayUrl ? new URL(displayUrl).hostname : null)}
-            hasData={hasAnyData}
-            isLoading={isAnyLoading || isLoadingUrl} 
-            onRefresh={handleRefreshAnalysis}
-            canRefresh={!!(displayUrl || url) && !isLoadingUrl && !isAnyLoading}
-          />
+          <div ref={actionsCardWrapperRef}>
+            <ActionButtons 
+              onRefresh={handleRefreshAnalysis}
+              onCopyToClipboard={handleCopyToClipboard}
+              onDownloadMarkdown={handleDownloadMarkdown}
+              canRefresh={canRefresh}
+              exportButtonsDisabled={exportButtonsDisabled}
+              isLoading={isAnyLoading || isLoadingUrl}
+              hasData={hasAnyData} // Pass hasData to ActionButtons as well
+            />
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
             <AnalysisSection title="Discussion Summary" icon={FileText} isLoading={isLoadingSummary} error={errorSummary}>
