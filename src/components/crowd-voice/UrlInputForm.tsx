@@ -45,7 +45,7 @@ export function UrlInputForm({ onSubmit, isLoading, initialUrl = '' }: UrlInputF
   return (
     <Card className="mb-8 shadow-xl">
       <CardHeader>
-        <CardTitle className="text-2xl font-bold text-center">Crowd Voice</CardTitle>
+        <CardTitle className="text-2xl font-bold text-center">Verbal Insights</CardTitle>
         <CardDescription className="text-center text-muted-foreground">
           Analyze discussion content by providing a URL or pasting text directly.
         </CardDescription>
@@ -63,7 +63,7 @@ export function UrlInputForm({ onSubmit, isLoading, initialUrl = '' }: UrlInputF
           <form onSubmit={handleSubmit}>
             <TabsContent value="url">
               <div className="relative flex-grow w-full">
-                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Globe className="absolute left-3 top-[calc(50%-1px)] -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   type="url"
                   placeholder="e.g., https://example.com/forum-post"
