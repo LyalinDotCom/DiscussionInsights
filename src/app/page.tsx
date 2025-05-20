@@ -107,7 +107,7 @@ export default function VerbalInsightsPage() {
   const resetAllStates = useCallback(() => {
     setFetchedPageContent(null);
     setUrlError(null);
-    setAnalysisInitiated(false); // This will also help control the header image effect
+    setAnalysisInitiated(false); 
     
     setHeaderImageData(null); setIsLoadingHeaderImage(false);
     setSummaryData(null); setIsLoadingSummary(false); setErrorSummary(null);
@@ -127,8 +127,8 @@ export default function VerbalInsightsPage() {
     setIsLoadingUrl(true); 
     setUrlError(null);
     setCurrentInputMode(inputMode);
-    setUrlOrPastedText(submittedValue); // Store the original input for re-analysis
-    setAnalysisInitiated(true); // Set this early
+    setUrlOrPastedText(submittedValue); 
+    setAnalysisInitiated(true); 
 
     if (inputMode === 'url') {
       setDisplayUrl(submittedValue);
@@ -138,7 +138,7 @@ export default function VerbalInsightsPage() {
       if (result.error) {
         setUrlError(result.error);
         setFetchedPageContent(null);
-        setAnalysisInitiated(false); // Reset if fetch fails
+        setAnalysisInitiated(false); 
       } else if (result.content) {
         setFetchedPageContent(result.content);
         const finalUrl = result.finalUrl || submittedValue;
@@ -152,7 +152,7 @@ export default function VerbalInsightsPage() {
       } else {
         setUrlError("Failed to fetch content or content was empty.");
         setFetchedPageContent(null);
-        setAnalysisInitiated(false); // Reset
+        setAnalysisInitiated(false); 
       }
     } else { 
       setDisplayUrl("Pasted Content");
@@ -162,85 +162,116 @@ export default function VerbalInsightsPage() {
       
       setIsLoadingLinks(false);
       setLinksData(null);
-      setErrorLinks("Link contextualization is not applicable for pasted text.");
+      // setErrorLinks("Link contextualization is not applicable for pasted text."); // Error set in main useEffect now
     }
   }, [resetAllStates]);
   
+  // Individual Refresh Handlers
+  const handleRefreshSummary = useCallback(async () => {
+    if (!fetchedPageContent) return;
+    setIsLoadingSummary(true); setErrorSummary(null);
+    try {
+      const data = await summarizeDiscussion({ url: currentInputMode === 'url' ? (displayUrl || urlOrPastedText) : "Pasted Content", content: fetchedPageContent });
+      setSummaryData(data);
+    } catch (err: any) { setErrorSummary(err.message || "Failed to refresh summary."); }
+    finally { setIsLoadingSummary(false); }
+  }, [fetchedPageContent, displayUrl, urlOrPastedText, currentInputMode]);
+
+  const handleRefreshKeyPoints = useCallback(async () => {
+    if (!fetchedPageContent) return;
+    setIsLoadingKeyPoints(true); setErrorKeyPoints(null);
+    try {
+      const data = await extractKeyPoints({ conversation: fetchedPageContent });
+      setKeyPointsData(data);
+    } catch (err: any) { setErrorKeyPoints(err.message || "Failed to refresh key points."); }
+    finally { setIsLoadingKeyPoints(false); }
+  }, [fetchedPageContent]);
+
+  const handleRefreshSentiment = useCallback(async () => {
+    if (!fetchedPageContent) return;
+    setIsLoadingSentiment(true); setErrorSentiment(null);
+    try {
+      const data = await analyzeSentiment({ text: fetchedPageContent });
+      setSentimentData(data);
+    } catch (err: any) { setErrorSentiment(err.message || "Failed to refresh sentiment."); }
+    finally { setIsLoadingSentiment(false); }
+  }, [fetchedPageContent]);
+
+  const handleRefreshLinks = useCallback(async () => {
+    if (!fetchedPageContent || currentInputMode !== 'url' || !displayUrl || displayUrl === "Pasted Content") {
+      setErrorLinks("Link contextualization is not applicable or no URL available for refresh.");
+      return;
+    }
+    setIsLoadingLinks(true); setErrorLinks(null);
+    try {
+      const data = await contextualizeLinks({ pageContent: fetchedPageContent, sourceUrl: displayUrl });
+      setLinksData(data);
+    } catch (err: any) { setErrorLinks(err.message || "Failed to refresh links."); }
+    finally { setIsLoadingLinks(false); }
+  }, [fetchedPageContent, displayUrl, currentInputMode]);
+
+  const handleRefreshWordCloud = useCallback(async () => {
+    if (!fetchedPageContent) return;
+    setIsLoadingWordCloud(true); setErrorWordCloud(null);
+    try {
+      const data = await generateWordCloud({ textContent: fetchedPageContent });
+      setWordCloudData(data);
+    } catch (err: any) { setErrorWordCloud(err.message || "Failed to refresh word cloud."); }
+    finally { setIsLoadingWordCloud(false); }
+  }, [fetchedPageContent]);
+
+  const handleRefreshActionItems = useCallback(async () => {
+    if (!fetchedPageContent) return;
+    setIsLoadingActionItems(true); setErrorActionItems(null);
+    try {
+      const data = await extractActionItems({ conversation: fetchedPageContent });
+      setActionItemsData(data);
+    } catch (err: any) { setErrorActionItems(err.message || "Failed to refresh action items."); }
+    finally { setIsLoadingActionItems(false); }
+  }, [fetchedPageContent]);
+
 
   useEffect(() => {
     if (fetchedPageContent && displayUrl && analysisInitiated) { 
       const contentToAnalyze = fetchedPageContent; 
       const currentDisplayReference = displayUrl; 
 
-      // Note: Header image generation is moved to a separate useEffect dependent on wordCloudData/pageTitle
-
-      setIsLoadingSummary(true);
-      summarizeDiscussion({ url: currentInputMode === 'url' ? currentDisplayReference : "Pasted Content", content: contentToAnalyze })
-        .then(setSummaryData)
-        .catch(err => setErrorSummary(err.message || "Failed to summarize discussion."))
-        .finally(() => setIsLoadingSummary(false));
-
-      setIsLoadingKeyPoints(true);
-      extractKeyPoints({ conversation: contentToAnalyze })
-        .then(setKeyPointsData)
-        .catch(err => setErrorKeyPoints(err.message || "Failed to extract key points."))
-        .finally(() => setIsLoadingKeyPoints(false));
-
-      setIsLoadingSentiment(true);
-      analyzeSentiment({ text: contentToAnalyze })
-        .then(setSentimentData)
-        .catch(err => setErrorSentiment(err.message || "Failed to analyze sentiment."))
-        .finally(() => setIsLoadingSentiment(false));
+      handleRefreshSummary();
+      handleRefreshKeyPoints();
+      handleRefreshSentiment();
+      handleRefreshWordCloud();
+      handleRefreshActionItems();
 
       if (currentInputMode === 'url' && currentDisplayReference !== "Pasted Content") {
-        setIsLoadingLinks(true);
-        setErrorLinks(null); 
-        contextualizeLinks({ pageContent: contentToAnalyze, sourceUrl: currentDisplayReference })
-          .then(setLinksData)
-          .catch(err => setErrorLinks(err.message || "Failed to contextualize links."))
-          .finally(() => setIsLoadingLinks(false));
+        handleRefreshLinks();
       } else {
          setLinksData(null);
          setIsLoadingLinks(false);
          if (!errorLinks) setErrorLinks("Link contextualization is not applicable for pasted text.");
       }
-      
-      setIsLoadingWordCloud(true);
-      generateWordCloud({ textContent: contentToAnalyze })
-        .then(setWordCloudData)
-        .catch(err => setErrorWordCloud(err.message || "Failed to generate word cloud."))
-        .finally(() => setIsLoadingWordCloud(false));
-
-      setIsLoadingActionItems(true);
-      extractActionItems({ conversation: contentToAnalyze })
-        .then(setActionItemsData)
-        .catch(err => setErrorActionItems(err.message || "Failed to extract action items."))
-        .finally(() => setIsLoadingActionItems(false));
     }
-  }, [fetchedPageContent, displayUrl, currentInputMode, analysisInitiated, errorLinks]); 
+  }, [fetchedPageContent, displayUrl, currentInputMode, analysisInitiated, errorLinks, 
+      handleRefreshSummary, handleRefreshKeyPoints, handleRefreshSentiment, 
+      handleRefreshLinks, handleRefreshWordCloud, handleRefreshActionItems]); 
 
 
   useEffect(() => {
     if (!analysisInitiated) {
-      setHeaderImageData(null); // Clear image if analysis is not active
+      setHeaderImageData(null); 
       return;
     }
     
-    // Only proceed if there's content to analyze (even if other specific data like word cloud isn't ready yet)
-    // This ensures a fallback image generation if word cloud/title fails or is pending
     if (!fetchedPageContent) {
         return;
     }
 
-    // This effect will re-run if wordCloudData or pageTitleFromContent changes after initial fetch.
-    // Give priority to wordCloudData, then pageTitle, then content snippet.
     let imagePromptText = "";
 
     if (wordCloudData && wordCloudData.length > 0) {
       const topWords = wordCloudData
-        .slice() // Create a copy before sorting
-        .sort((a, b) => b.value - a.value) // Sort descending by value
-        .slice(0, 7) // Take top 7 words
+        .slice() 
+        .sort((a, b) => b.value - a.value) 
+        .slice(0, 7) 
         .map(item => item.text)
         .join(', ');
       if (topWords) {
@@ -346,7 +377,7 @@ export default function VerbalInsightsPage() {
   const isAnyLoading = isLoadingUrl || isLoadingHeaderImage || isLoadingSummary || isLoadingKeyPoints || isLoadingSentiment || isLoadingLinks || isLoadingWordCloud || isLoadingActionItems;
 
 
-  const handleRefreshAnalysis = () => {
+  const handleGlobalRefreshAnalysis = () => {
     if (urlOrPastedText) { 
       handleAnalysisSubmit(urlOrPastedText, currentInputMode);
     }
@@ -422,7 +453,8 @@ export default function VerbalInsightsPage() {
       await new Promise<void>((resolve) => {
         video.onloadedmetadata = () => {
           video.play();
-          setTimeout(() => resolve(), 500); 
+          // Add a small delay to ensure the content is fully rendered in the video stream
+          setTimeout(() => resolve(), 500); // Increased delay
         };
       });
 
@@ -470,7 +502,7 @@ export default function VerbalInsightsPage() {
 
 
   const exportButtonsDisabled = isAnyLoading || !hasAnyData || isTakingScreenshot;
-  const canRefresh = !!(urlOrPastedText) && !isLoadingUrl && !isAnyLoading && !isTakingScreenshot;
+  const canRefreshGlobal = !!(urlOrPastedText) && !isLoadingUrl && !isAnyLoading && !isTakingScreenshot;
 
 
   useEffect(() => {
@@ -629,11 +661,11 @@ export default function VerbalInsightsPage() {
         {isLoadingUrl && <LoadingIndicator text={currentInputMode === 'url' ? "Fetching URL content..." : "Processing text..."}/>}
 
         <FloatingActionButtons
-          onRefresh={handleRefreshAnalysis}
+          onRefresh={handleGlobalRefreshAnalysis}
           onCopyToClipboard={handleCopyToClipboard}
           onDownloadMarkdown={handleDownloadMarkdown}
           onDownloadScreenshot={handleDownloadScreenshot}
-          canRefresh={canRefresh}
+          canRefresh={canRefreshGlobal}
           exportButtonsDisabled={exportButtonsDisabled}
           isLoading={isAnyLoading || isLoadingUrl || isTakingScreenshot}
           isTakingScreenshot={isTakingScreenshot}
@@ -644,11 +676,11 @@ export default function VerbalInsightsPage() {
           <>
             <div ref={actionsCardWrapperRef}>
               <ActionButtons 
-                onRefresh={handleRefreshAnalysis}
+                onRefresh={handleGlobalRefreshAnalysis}
                 onCopyToClipboard={handleCopyToClipboard}
                 onDownloadMarkdown={handleDownloadMarkdown}
                 onDownloadScreenshot={handleDownloadScreenshot}
-                canRefresh={canRefresh}
+                canRefresh={canRefreshGlobal}
                 exportButtonsDisabled={exportButtonsDisabled}
                 isLoading={isAnyLoading || isLoadingUrl}
                 isTakingScreenshot={isTakingScreenshot}
@@ -663,6 +695,7 @@ export default function VerbalInsightsPage() {
                 isLoading={isLoadingSummary} 
                 error={errorSummary}
                 onCopy={summaryData?.summary ? handleCopySummary : undefined}
+                onRefresh={fetchedPageContent ? handleRefreshSummary : undefined}
               >
                 {summaryData?.summary ? (
                   <>
@@ -684,6 +717,7 @@ export default function VerbalInsightsPage() {
                 isLoading={isLoadingSentiment} 
                 error={errorSentiment}
                 onCopy={sentimentData ? handleCopySentiment : undefined}
+                onRefresh={fetchedPageContent ? handleRefreshSentiment : undefined}
               >
                 {sentimentData ? (
                   <div className="space-y-2">
@@ -703,6 +737,7 @@ export default function VerbalInsightsPage() {
                 error={errorWordCloud} 
                 className="md:col-span-2"
                 onCopy={(wordCloudData && wordCloudData.length > 0) ? handleCopyWordCloud : undefined}
+                onRefresh={fetchedPageContent ? handleRefreshWordCloud : undefined}
               >
                 <WordCloudDisplay data={wordCloudData} />
               </AnalysisSection>
@@ -714,6 +749,7 @@ export default function VerbalInsightsPage() {
                 error={errorKeyPoints} 
                 className="md:col-span-2"
                 onCopy={(keyPointsData && (keyPointsData.keyPoints?.length > 0 || keyPointsData.quotes?.length > 0)) ? handleCopyKeyPoints : undefined}
+                onRefresh={fetchedPageContent ? handleRefreshKeyPoints : undefined}
               >
                 {keyPointsData ? (
                   <div className="space-y-4">
@@ -751,6 +787,7 @@ export default function VerbalInsightsPage() {
                 error={errorActionItems}
                 className="md:col-span-2"
                 onCopy={(actionItemsData && actionItemsData.actionItems?.length > 0) ? handleCopyActionItems : undefined}
+                onRefresh={fetchedPageContent ? handleRefreshActionItems : undefined}
               >
                 {actionItemsData && actionItemsData.actionItems && actionItemsData.actionItems.length > 0 ? (
                   <ul className="list-disc pl-6 space-y-1">
@@ -768,6 +805,7 @@ export default function VerbalInsightsPage() {
                 error={errorLinks} 
                 className="md:col-span-2"
                 onCopy={(linksData && linksData.length > 0 && currentInputMode === 'url') ? handleCopyLinks : undefined}
+                onRefresh={fetchedPageContent && currentInputMode === 'url' && displayUrl !== "Pasted Content" ? handleRefreshLinks : undefined}
               >
                 {linksData && linksData.length > 0 && currentInputMode === 'url' ? (
                   <ul className="space-y-4">
@@ -782,7 +820,7 @@ export default function VerbalInsightsPage() {
                   </ul>
                 ) : (
                   !isLoadingLinks && (
-                    <p>{errorLinks || "No links found or contextualized."}</p>
+                    <p>{errorLinks || (currentInputMode === 'text' ? "Link contextualization is not applicable for pasted text." : "No links found or contextualized.")}</p>
                   )
                 )}
               </AnalysisSection>
