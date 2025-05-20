@@ -57,6 +57,7 @@ const renderMarkdownLine = (line: string, lineKey: string | number): React.React
   return <>{parts.map((part, index) => <React.Fragment key={index}>{part}</React.Fragment>)}</>;
 };
 
+const aiDisclaimer = "Disclaimer: AI-generated content may contain inaccuracies. Always verify critical information.";
 
 export default function VerbalInsightsPage() {
   const [url, setUrl] = useState(''); 
@@ -264,6 +265,9 @@ export default function VerbalInsightsPage() {
       });
       markdown += `\n`;
     }
+
+    markdown += `---\n${aiDisclaimer}\n`;
+
     return markdown;
   }, [analysisInitiated, displayUrl, url, summaryData, keyPointsData, sentimentData, linksData, pageTitleFromContent, wordCloudData, actionItemsData]);
 
@@ -363,7 +367,13 @@ export default function VerbalInsightsPage() {
     let textToCopy = "";
     if (pageTitleFromContent) textToCopy += `Title: ${pageTitleFromContent}\n\n`;
     if (summaryData?.summary) textToCopy += summaryData.summary;
-    handleCopySection(textToCopy || null, "Summary");
+    
+    const trimmedContent = textToCopy.trim();
+    if (trimmedContent) {
+      handleCopySection(`${trimmedContent}\n\n---\n${aiDisclaimer}`, "Summary");
+    } else {
+      handleCopySection(null, "Summary");
+    }
   }, [summaryData, pageTitleFromContent, handleCopySection]);
 
   const handleCopySentiment = useCallback(() => {
@@ -371,7 +381,8 @@ export default function VerbalInsightsPage() {
       handleCopySection(null, "Sentiment");
       return;
     }
-    const textToCopy = `Overall Sentiment: ${sentimentData.sentiment}\nScore: ${sentimentData.score.toFixed(2)}\nExplanation: ${sentimentData.explanation}`;
+    let textToCopy = `Overall Sentiment: ${sentimentData.sentiment}\nScore: ${sentimentData.score.toFixed(2)}\nExplanation: ${sentimentData.explanation}`;
+    textToCopy += `\n\n---\n${aiDisclaimer}`;
     handleCopySection(textToCopy, "Sentiment Analysis");
   }, [sentimentData, handleCopySection]);
   
@@ -380,12 +391,13 @@ export default function VerbalInsightsPage() {
         handleCopySection(null, "Word Cloud");
         return;
     }
-    const textToCopy = wordCloudData.map(item => `${item.text} (value: ${item.value})`).join('\n');
+    let textToCopy = wordCloudData.map(item => `${item.text} (value: ${item.value})`).join('\n');
+    textToCopy += `\n\n---\n${aiDisclaimer}`;
     handleCopySection(textToCopy, "Word Cloud");
   }, [wordCloudData, handleCopySection]);
 
   const handleCopyKeyPoints = useCallback(() => {
-    if (!keyPointsData) {
+    if (!keyPointsData || (!keyPointsData.keyPoints?.length && !keyPointsData.quotes?.length)) {
       handleCopySection(null, "Key Points");
       return;
     }
@@ -399,7 +411,13 @@ export default function VerbalInsightsPage() {
       textToCopy += "Key Quotes:\n";
       keyPointsData.quotes.forEach(quote => textToCopy += `> "${quote}"\n\n`);
     }
-    handleCopySection(textToCopy.trim() || null, "Key Points & Quotes");
+    
+    const trimmedContent = textToCopy.trim();
+    if (trimmedContent) {
+      handleCopySection(`${trimmedContent}\n\n---\n${aiDisclaimer}`, "Key Points & Quotes");
+    } else {
+       handleCopySection(null, "Key Points & Quotes"); // Should not happen if first check passes
+    }
   }, [keyPointsData, handleCopySection]);
 
   const handleCopyActionItems = useCallback(() => {
@@ -407,7 +425,8 @@ export default function VerbalInsightsPage() {
       handleCopySection(null, "Action Items");
       return;
     }
-    const textToCopy = "Action Items:\n" + actionItemsData.actionItems.map(item => `- ${item}`).join('\n');
+    let textToCopy = "Action Items:\n" + actionItemsData.actionItems.map(item => `- ${item}`).join('\n');
+    textToCopy += `\n\n---\n${aiDisclaimer}`;
     handleCopySection(textToCopy, "Action Items");
   }, [actionItemsData, handleCopySection]);
 
@@ -416,7 +435,8 @@ export default function VerbalInsightsPage() {
       handleCopySection(null, "Links");
       return;
     }
-    const textToCopy = linksData.map((linkItem, index) => `${index + 1}. ${linkItem.url}\n   Context: ${linkItem.context}`).join('\n\n');
+    let textToCopy = linksData.map((linkItem, index) => `${index + 1}. ${linkItem.url}\n   Context: ${linkItem.context}`).join('\n\n');
+    textToCopy += `\n\n---\n${aiDisclaimer}`;
     handleCopySection(textToCopy, "Contextualized Links");
   }, [linksData, handleCopySection]);
 
