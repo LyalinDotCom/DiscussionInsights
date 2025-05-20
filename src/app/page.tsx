@@ -10,7 +10,7 @@ import { LoadingIndicator } from '@/components/verbal-insights/LoadingIndicator'
 import { fetchUrlContent } from '@/lib/actions';
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, FileText, ListChecks, MessageSquareText, Link as LinkIcon, Smile, Frown, Meh, QuoteIcon, Tags } from 'lucide-react';
+import { AlertCircle, FileText, ListChecks, MessageSquareText, Link as LinkIcon, Smile, Frown, Meh, QuoteIcon, Tags, ListTodo } from 'lucide-react';
 import { WordCloudDisplay } from '@/components/verbal-insights/WordCloudDisplay';
 import { useToast } from '@/hooks/use-toast';
 import React from 'react';
@@ -23,6 +23,7 @@ import { analyzeSentiment, type AnalyzeSentimentOutput } from '@/ai/flows/analyz
 import { contextualizeLinks, type ContextualizeLinksOutput } from '@/ai/flows/contextualize-links';
 import { generateHeaderImage, type GenerateHeaderImageOutput } from '@/ai/flows/generate-header-image';
 import { generateWordCloud, type GenerateWordCloudOutput } from '@/ai/flows/generate-word-cloud';
+import { extractActionItems, type ExtractActionItemsOutput } from '@/ai/flows/extract-action-items';
 
 // Helper function to render simple inline Markdown (bold, italic)
 const renderMarkdownLine = (line: string, lineKey: string | number): React.ReactNode => {
@@ -90,6 +91,10 @@ export default function VerbalInsightsPage() {
   const [isLoadingWordCloud, setIsLoadingWordCloud] = useState(false);
   const [errorWordCloud, setErrorWordCloud] = useState<string | null>(null);
 
+  const [actionItemsData, setActionItemsData] = useState<ExtractActionItemsOutput | null>(null);
+  const [isLoadingActionItems, setIsLoadingActionItems] = useState(false);
+  const [errorActionItems, setErrorActionItems] = useState<string | null>(null);
+
   const [showFloatingActions, setShowFloatingActions] = useState(false);
   const actionsCardWrapperRef = useRef<HTMLDivElement>(null);
 
@@ -106,6 +111,7 @@ export default function VerbalInsightsPage() {
     setSentimentData(null); setIsLoadingSentiment(false); setErrorSentiment(null);
     setLinksData(null); setIsLoadingLinks(false); setErrorLinks(null);
     setWordCloudData(null); setIsLoadingWordCloud(false); setErrorWordCloud(null);
+    setActionItemsData(null); setIsLoadingActionItems(false); setErrorActionItems(null);
     setPageTitleFromContent(null);
   }, []);
 
@@ -186,6 +192,12 @@ export default function VerbalInsightsPage() {
         .then(setWordCloudData)
         .catch(err => setErrorWordCloud(err.message || "Failed to generate word cloud."))
         .finally(() => setIsLoadingWordCloud(false));
+
+      setIsLoadingActionItems(true);
+      extractActionItems({ conversation: contentToAnalyze })
+        .then(setActionItemsData)
+        .catch(err => setErrorActionItems(err.message || "Failed to extract action items."))
+        .finally(() => setIsLoadingActionItems(false));
     }
   }, [fetchedPageContent, displayUrl]); 
 
@@ -238,6 +250,12 @@ export default function VerbalInsightsPage() {
       markdown += `- **Explanation:** ${sentimentData.explanation}\n\n`;
     }
 
+    if (actionItemsData && actionItemsData.actionItems?.length > 0) {
+      markdown += `## Action Items\n`;
+      actionItemsData.actionItems.forEach(item => markdown += `- ${item}\n`);
+      markdown += `\n`;
+    }
+
     if (linksData && linksData.length > 0) {
       markdown += `## Contextualized Links\n`;
       linksData.forEach((linkItem, index) => {
@@ -247,10 +265,11 @@ export default function VerbalInsightsPage() {
       markdown += `\n`;
     }
     return markdown;
-  }, [analysisInitiated, displayUrl, url, summaryData, keyPointsData, sentimentData, linksData, pageTitleFromContent, wordCloudData]);
+  }, [analysisInitiated, displayUrl, url, summaryData, keyPointsData, sentimentData, linksData, pageTitleFromContent, wordCloudData, actionItemsData]);
 
-  const hasAnyData = !!(summaryData || keyPointsData || sentimentData || linksData || headerImageData || wordCloudData);
-  const isAnyLoading = isLoadingUrl || isLoadingHeaderImage || isLoadingSummary || isLoadingKeyPoints || isLoadingSentiment || isLoadingLinks || isLoadingWordCloud;
+  const hasAnyData = !!(summaryData || keyPointsData || sentimentData || linksData || headerImageData || wordCloudData || actionItemsData);
+  const isAnyLoading = isLoadingUrl || isLoadingHeaderImage || isLoadingSummary || isLoadingKeyPoints || isLoadingSentiment || isLoadingLinks || isLoadingWordCloud || isLoadingActionItems;
+
 
   const handleRefreshAnalysis = () => {
     const urlToRefresh = displayUrl || url; 
@@ -382,6 +401,15 @@ export default function VerbalInsightsPage() {
     }
     handleCopySection(textToCopy.trim() || null, "Key Points & Quotes");
   }, [keyPointsData, handleCopySection]);
+
+  const handleCopyActionItems = useCallback(() => {
+    if (!actionItemsData || !actionItemsData.actionItems || actionItemsData.actionItems.length === 0) {
+      handleCopySection(null, "Action Items");
+      return;
+    }
+    const textToCopy = "Action Items:\n" + actionItemsData.actionItems.map(item => `- ${item}`).join('\n');
+    handleCopySection(textToCopy, "Action Items");
+  }, [actionItemsData, handleCopySection]);
 
   const handleCopyLinks = useCallback(() => {
     if (!linksData || linksData.length === 0) {
@@ -545,6 +573,23 @@ export default function VerbalInsightsPage() {
                   </div>
                 ) : (
                   !isLoadingKeyPoints && <p>No key points or quotes available.</p>
+                )}
+              </AnalysisSection>
+
+              <AnalysisSection
+                title="Action Items"
+                icon={ListTodo}
+                isLoading={isLoadingActionItems}
+                error={errorActionItems}
+                className="md:col-span-2"
+                onCopy={(actionItemsData && actionItemsData.actionItems?.length > 0) ? handleCopyActionItems : undefined}
+              >
+                {actionItemsData && actionItemsData.actionItems && actionItemsData.actionItems.length > 0 ? (
+                  <ul className="list-disc pl-6 space-y-1">
+                    {actionItemsData.actionItems.map((item, index) => <li key={`action-${index}`}>{item}</li>)}
+                  </ul>
+                ) : (
+                  !isLoadingActionItems && <p>No action items identified.</p>
                 )}
               </AnalysisSection>
 

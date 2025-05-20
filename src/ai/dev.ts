@@ -7,4 +7,5 @@ import '@/ai/flows/analyze-sentiment.ts';
 import '@/ai/flows/summarize-discussion.ts';
 import '@/ai/flows/generate-header-image.ts';
 import '@/ai/flows/extract-key-points.ts';
-import '@/ai/flows/generate-word-cloud.ts'; // Added new flow
+import '@/ai/flows/generate-word-cloud.ts';
+import '@/ai/flows/extract-action-items.ts'; // Added new flow
