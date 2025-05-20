@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Verbal Insights',
+  title: 'Crowd Voice',
   description: 'Analyze sentiment and discussions from web content.',
 };
 
