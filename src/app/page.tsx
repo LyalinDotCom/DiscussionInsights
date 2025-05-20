@@ -107,7 +107,7 @@ export default function VerbalInsightsPage() {
   const resetAllStates = useCallback(() => {
     setFetchedPageContent(null);
     setUrlError(null);
-    setAnalysisInitiated(false);
+    setAnalysisInitiated(false); // This will also help control the header image effect
     
     setHeaderImageData(null); setIsLoadingHeaderImage(false);
     setSummaryData(null); setIsLoadingSummary(false); setErrorSummary(null);
@@ -124,11 +124,11 @@ export default function VerbalInsightsPage() {
     if (!submittedValue) return;
 
     resetAllStates();
-    setIsLoadingUrl(true); // General loading indicator for input processing
+    setIsLoadingUrl(true); 
     setUrlError(null);
-    setAnalysisInitiated(true);
     setCurrentInputMode(inputMode);
-    setUrlOrPastedText(submittedValue);
+    setUrlOrPastedText(submittedValue); // Store the original input for re-analysis
+    setAnalysisInitiated(true); // Set this early
 
     if (inputMode === 'url') {
       setDisplayUrl(submittedValue);
@@ -138,11 +138,12 @@ export default function VerbalInsightsPage() {
       if (result.error) {
         setUrlError(result.error);
         setFetchedPageContent(null);
+        setAnalysisInitiated(false); // Reset if fetch fails
       } else if (result.content) {
         setFetchedPageContent(result.content);
         const finalUrl = result.finalUrl || submittedValue;
         setDisplayUrl(finalUrl); 
-        setUrlOrPastedText(finalUrl); // Store the potentially resolved URL
+        setUrlOrPastedText(finalUrl); 
 
         const titleMatch = result.content.match(/<title>(.*?)<\/title>/i);
         if (titleMatch && titleMatch[1]) {
@@ -151,14 +152,14 @@ export default function VerbalInsightsPage() {
       } else {
         setUrlError("Failed to fetch content or content was empty.");
         setFetchedPageContent(null);
+        setAnalysisInitiated(false); // Reset
       }
-    } else { // inputMode === 'text'
+    } else { 
       setDisplayUrl("Pasted Content");
       setFetchedPageContent(submittedValue);
-      setPageTitleFromContent("Pasted Analysis"); // Or derive from first few words
-      setIsLoadingUrl(false); // Text processing done, analysis will start
+      setPageTitleFromContent("Pasted Analysis"); 
+      setIsLoadingUrl(false); 
       
-      // For pasted text, link contextualization is not applicable
       setIsLoadingLinks(false);
       setLinksData(null);
       setErrorLinks("Link contextualization is not applicable for pasted text.");
@@ -167,21 +168,13 @@ export default function VerbalInsightsPage() {
   
 
   useEffect(() => {
-    if (fetchedPageContent && displayUrl) { 
+    if (fetchedPageContent && displayUrl && analysisInitiated) { 
       const contentToAnalyze = fetchedPageContent; 
-      const currentDisplayReference = displayUrl; // "Pasted Content" or URL
+      const currentDisplayReference = displayUrl; 
 
-      setIsLoadingHeaderImage(true);
-      generateHeaderImage({ text: contentToAnalyze.substring(0, 1000) }) 
-        .then(setHeaderImageData)
-        .catch(err => {
-            console.error("Failed to generate header image:", err.message);
-            setHeaderImageData(null);
-        })
-        .finally(() => setIsLoadingHeaderImage(false));
+      // Note: Header image generation is moved to a separate useEffect dependent on wordCloudData/pageTitle
 
       setIsLoadingSummary(true);
-      // Pass "Pasted Content" or actual URL to summarizeDiscussion
       summarizeDiscussion({ url: currentInputMode === 'url' ? currentDisplayReference : "Pasted Content", content: contentToAnalyze })
         .then(setSummaryData)
         .catch(err => setErrorSummary(err.message || "Failed to summarize discussion."))
@@ -201,17 +194,15 @@ export default function VerbalInsightsPage() {
 
       if (currentInputMode === 'url' && currentDisplayReference !== "Pasted Content") {
         setIsLoadingLinks(true);
-        setErrorLinks(null); // Clear previous error if any
+        setErrorLinks(null); 
         contextualizeLinks({ pageContent: contentToAnalyze, sourceUrl: currentDisplayReference })
           .then(setLinksData)
           .catch(err => setErrorLinks(err.message || "Failed to contextualize links."))
           .finally(() => setIsLoadingLinks(false));
       } else {
-        // Handled in handleAnalysisSubmit for pasted text
          setLinksData(null);
          setIsLoadingLinks(false);
          if (!errorLinks) setErrorLinks("Link contextualization is not applicable for pasted text.");
-
       }
       
       setIsLoadingWordCloud(true);
@@ -226,7 +217,61 @@ export default function VerbalInsightsPage() {
         .catch(err => setErrorActionItems(err.message || "Failed to extract action items."))
         .finally(() => setIsLoadingActionItems(false));
     }
-  }, [fetchedPageContent, displayUrl, currentInputMode, errorLinks]); 
+  }, [fetchedPageContent, displayUrl, currentInputMode, analysisInitiated, errorLinks]); 
+
+
+  useEffect(() => {
+    if (!analysisInitiated) {
+      setHeaderImageData(null); // Clear image if analysis is not active
+      return;
+    }
+    
+    // Only proceed if there's content to analyze (even if other specific data like word cloud isn't ready yet)
+    // This ensures a fallback image generation if word cloud/title fails or is pending
+    if (!fetchedPageContent) {
+        return;
+    }
+
+    // This effect will re-run if wordCloudData or pageTitleFromContent changes after initial fetch.
+    // Give priority to wordCloudData, then pageTitle, then content snippet.
+    let imagePromptText = "";
+
+    if (wordCloudData && wordCloudData.length > 0) {
+      const topWords = wordCloudData
+        .slice() // Create a copy before sorting
+        .sort((a, b) => b.value - a.value) // Sort descending by value
+        .slice(0, 7) // Take top 7 words
+        .map(item => item.text)
+        .join(', ');
+      if (topWords) {
+        imagePromptText = `Create an artistic, abstract, and visually compelling wide header image inspired by these key concepts: ${topWords}. The image should evoke the general theme and sentiment without depicting any text or specific objects mentioned. Focus on atmosphere and conceptual representation.`;
+      }
+    }
+
+    if (!imagePromptText && pageTitleFromContent) {
+      imagePromptText = `Create an artistic, abstract, and visually compelling wide header image inspired by the title: "${pageTitleFromContent}". The image should evoke the general theme and sentiment without depicting any text or the title itself. Focus on atmosphere and conceptual representation.`;
+    }
+    
+    if (!imagePromptText && fetchedPageContent) {
+      const contentSnippet = fetchedPageContent.substring(0, 300);
+      imagePromptText = `Create an artistic, abstract, and visually compelling wide header image representing the mood and key themes from the following text snippet: "${contentSnippet}". The image should be purely visual, without any text. Focus on atmosphere and conceptual representation.`;
+    }
+    
+    if (!imagePromptText) { 
+        imagePromptText = "Generate an abstract, artistic, wide header image with a theme of communication, technology, or insight. The image should be purely visual, without any text. Focus on atmosphere and conceptual representation.";
+    }
+
+    setIsLoadingHeaderImage(true);
+    generateHeaderImage({ text: imagePromptText })
+      .then(setHeaderImageData)
+      .catch(err => {
+        console.error("Failed to generate header image:", err.message);
+        setHeaderImageData(null); 
+      })
+      .finally(() => setIsLoadingHeaderImage(false));
+
+  }, [wordCloudData, pageTitleFromContent, fetchedPageContent, analysisInitiated]);
+
 
   const getSentimentIcon = (sentiment?: string) => {
     if (!sentiment) return MessageSquareText;
@@ -302,7 +347,7 @@ export default function VerbalInsightsPage() {
 
 
   const handleRefreshAnalysis = () => {
-    if (urlOrPastedText) { // Use the stored URL or text
+    if (urlOrPastedText) { 
       handleAnalysisSubmit(urlOrPastedText, currentInputMode);
     }
   };
@@ -328,7 +373,7 @@ export default function VerbalInsightsPage() {
         return;
     }
     const markdownData = getAnalysisDataAsMarkdown();
-    const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const timestamp = new Date().toISOString().split('T')[0]; 
     const safePageTitle = pageTitleFromContent ? pageTitleFromContent.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 50) : (currentInputMode === 'text' ? 'pasted_content' : 'analysis');
     const filename = `verbal_insights_${safePageTitle}_${timestamp}.md`;
     
@@ -377,7 +422,7 @@ export default function VerbalInsightsPage() {
       await new Promise<void>((resolve) => {
         video.onloadedmetadata = () => {
           video.play();
-          setTimeout(() => resolve(), 300); // Increased delay
+          setTimeout(() => resolve(), 500); 
         };
       });
 
@@ -541,7 +586,7 @@ export default function VerbalInsightsPage() {
 
   return (
     <>
-      {headerImageData?.imageUrl && !isLoadingHeaderImage && (
+      {headerImageData?.imageUrl && !isLoadingHeaderImage && analysisInitiated && (
         <>
           <div
             style={{
