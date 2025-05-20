@@ -63,7 +63,7 @@ export function UrlInputForm({ onSubmit, isLoading, initialUrl = '' }: UrlInputF
           <form onSubmit={handleSubmit}>
             <TabsContent value="url">
               <div className="relative flex-grow w-full">
-                <Globe className="absolute left-3 top-[calc(50%-1px)] -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Globe className="absolute left-3 top-[calc(50%-3px)] -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   type="url"
                   placeholder="e.g., https://example.com/forum-post"
