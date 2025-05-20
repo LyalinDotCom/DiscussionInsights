@@ -96,7 +96,7 @@ export default function VerbalInsightsPage() {
   const [isLoadingActionItems, setIsLoadingActionItems] = useState(false);
   const [errorActionItems, setErrorActionItems] = useState<string | null>(null);
 
-  const [isTakingScreenshot, setIsTakingScreenshot] = useState(false); // New state for screenshot loading
+  const [isTakingScreenshot, setIsTakingScreenshot] = useState(false);
 
   const [showFloatingActions, setShowFloatingActions] = useState(false);
   const actionsCardWrapperRef = useRef<HTMLDivElement>(null);
@@ -337,27 +337,29 @@ export default function VerbalInsightsPage() {
     setIsTakingScreenshot(true);
     toast({
       title: "Screen Capture",
-      description: "Please select the current browser tab or screen to capture. This will capture the visible area.",
+      description: "Please select the current browser tab or screen. The visible area will be captured.",
       duration: 7000,
     });
 
     try {
+      // Ensure we're using the standard Screen Capture API method
       const mediaStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { cursor: "never" } as MediaTrackConstraints, // Type assertion for cursor
+        video: { cursor: "never" } as MediaTrackConstraints, 
         audio: false,
       });
       
       const track = mediaStream.getVideoTracks()[0];
       
-      // Create a video element to play the stream
       const video = document.createElement('video');
       video.srcObject = mediaStream;
-      await new Promise(resolve => video.onloadedmetadata = resolve);
-      video.play();
-
-      // Wait for the video to be ready (a short delay can help ensure the frame is current)
-      await new Promise(resolve => setTimeout(resolve, 100));
-
+      
+      await new Promise<void>((resolve) => {
+        video.onloadedmetadata = () => {
+          video.play();
+          // A short delay to ensure the video frame is current before capturing
+          setTimeout(() => resolve(), 200); 
+        };
+      });
 
       const canvas = document.createElement('canvas');
       canvas.width = video.videoWidth;
@@ -365,12 +367,13 @@ export default function VerbalInsightsPage() {
       const context = canvas.getContext('2d');
       
       if (!context) {
+        track.stop(); // Stop the track if canvas context fails
+        video.srcObject = null;
         throw new Error('Failed to get canvas context');
       }
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       const imageUrl = canvas.toDataURL('image/png');
 
-      // Stop the tracks and video
       track.stop();
       video.srcObject = null;
 
@@ -493,7 +496,7 @@ export default function VerbalInsightsPage() {
     if (trimmedContent) {
       handleCopySection(`${trimmedContent}\n\n---\n${aiDisclaimer}`, "Key Points & Quotes");
     } else {
-       handleCopySection(null, "Key Points & Quotes"); // Should not happen if first check passes
+       handleCopySection(null, "Key Points & Quotes"); 
     }
   }, [keyPointsData, handleCopySection]);
 
@@ -548,7 +551,7 @@ export default function VerbalInsightsPage() {
       <div className="min-h-screen container mx-auto px-4 py-8 relative z-10">
         <UrlInputForm 
           onSubmit={(newUrl) => { setUrl(newUrl); handleUrlSubmit(newUrl); }} 
-          isLoading={isLoadingUrl || isTakingScreenshot} // Disable form while taking screenshot
+          isLoading={isLoadingUrl || isTakingScreenshot}
           initialUrl={url} 
         />
 
@@ -654,7 +657,7 @@ export default function VerbalInsightsPage() {
                       <div>
                         <h3 className="text-lg font-semibold mb-2 flex items-center"><MessageSquareText className="mr-2 h-5 w-5 text-primary"/>Key Points:</h3>
                         <ul className="list-disc pl-6 space-y-1">
-                          {keyPointsData.keyPoints.map((point, index) => <li key={`point-${index}`}>{point}</li>)}
+                          {keyPointsData.keyPoints.map((point, index) => <li key={`point-${index}`}>{renderMarkdownLine(point,`kp-${index}`)}</li>)}
                         </ul>
                       </div>
                     )}
@@ -663,7 +666,7 @@ export default function VerbalInsightsPage() {
                         <h3 className="text-lg font-semibold mt-4 mb-2 flex items-center"><QuoteIcon className="mr-2 h-5 w-5 text-primary"/>Relevant Quotes:</h3>
                         <ul className="space-y-3">
                           {keyPointsData.quotes.map((quote, index) => (
-                            <li key={`quote-${index}`} className="border-l-4 border-accent p-3 bg-accent/10 rounded-r-md italic">"{quote}"</li>
+                            <li key={`quote-${index}`} className="border-l-4 border-accent p-3 bg-accent/10 rounded-r-md italic">"{renderMarkdownLine(quote,`q-${index}`)}"</li>
                           ))}
                         </ul>
                       </div>
@@ -687,7 +690,7 @@ export default function VerbalInsightsPage() {
               >
                 {actionItemsData && actionItemsData.actionItems && actionItemsData.actionItems.length > 0 ? (
                   <ul className="list-disc pl-6 space-y-1">
-                    {actionItemsData.actionItems.map((item, index) => <li key={`action-${index}`}>{item}</li>)}
+                    {actionItemsData.actionItems.map((item, index) => <li key={`action-${index}`}>{renderMarkdownLine(item,`ai-${index}`)}</li>)}
                   </ul>
                 ) : (
                   !isLoadingActionItems && <p>No action items identified.</p>
@@ -709,7 +712,7 @@ export default function VerbalInsightsPage() {
                         <a href={linkItem.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium break-all block">
                           {linkItem.url}
                         </a>
-                        <p className="text-sm text-muted-foreground mt-1">{linkItem.context}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{renderMarkdownLine(linkItem.context, `link-ctx-${index}`)}</p>
                       </li>
                     ))}
                   </ul>
