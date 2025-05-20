@@ -45,7 +45,7 @@ export function UrlInputForm({ onSubmit, isLoading, initialUrl = '' }: UrlInputF
   return (
     <Card className="mb-8 shadow-xl">
       <CardHeader>
-        <CardTitle className="text-2xl font-bold text-center">Verbal Insights</CardTitle>
+        <CardTitle className="text-2xl font-bold text-center">Crowd Voice</CardTitle>
         <CardDescription className="text-center text-muted-foreground">
           Analyze discussion content by providing a URL or pasting text directly.
         </CardDescription>
@@ -73,6 +73,9 @@ export function UrlInputForm({ onSubmit, isLoading, initialUrl = '' }: UrlInputF
                   disabled={isLoading}
                   aria-label="Website URL for analysis"
                 />
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Please note: Video link analysis (e.g., YouTube) is not currently supported. This tool analyzes text-based web content and pasted text.
+                </p>
               </div>
             </TabsContent>
             <TabsContent value="text">

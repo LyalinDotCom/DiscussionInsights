@@ -2,16 +2,16 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { UrlInputForm } from '@/components/verbal-insights/UrlInputForm';
-import { AnalysisSection } from '@/components/verbal-insights/AnalysisSection';
-import { ActionButtons } from '@/components/verbal-insights/ActionButtons';
-import { FloatingActionButtons } from '@/components/verbal-insights/FloatingActionButtons';
-import { LoadingIndicator } from '@/components/verbal-insights/LoadingIndicator';
+import { UrlInputForm } from '@/components/crowd-voice/UrlInputForm';
+import { AnalysisSection } from '@/components/crowd-voice/AnalysisSection';
+import { ActionButtons } from '@/components/crowd-voice/ActionButtons';
+import { FloatingActionButtons } from '@/components/crowd-voice/FloatingActionButtons';
+import { LoadingIndicator } from '@/components/crowd-voice/LoadingIndicator';
 import { fetchUrlContent } from '@/lib/actions';
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, FileText, ListChecks, MessageSquareText, Link as LinkIcon, Smile, Frown, Meh, QuoteIcon, Tags, ListTodo } from 'lucide-react';
-import { WordCloudDisplay } from '@/components/verbal-insights/WordCloudDisplay';
+import { WordCloudDisplay } from '@/components/crowd-voice/WordCloudDisplay';
 import { useToast } from '@/hooks/use-toast';
 import React from 'react';
 
@@ -59,7 +59,7 @@ const renderMarkdownLine = (line: string, lineKey: string | number): React.React
 
 const aiDisclaimer = "Disclaimer: AI-generated content may contain inaccuracies. Always verify critical information.";
 
-export default function VerbalInsightsPage() {
+export default function CrowdVoicePage() {
   const [urlOrPastedText, setUrlOrPastedText] = useState('');
   const [currentInputMode, setCurrentInputMode] = useState<'url' | 'text'>('url');
   const [fetchedPageContent, setFetchedPageContent] = useState<string | null>(null);
@@ -322,7 +322,7 @@ export default function VerbalInsightsPage() {
     if (!analysisInitiated) return "";
 
     const analysisTimestamp = new Date().toISOString();
-    let markdown = `# Verbal Insights Analysis\n\n`;
+    let markdown = `# Crowd Voice Analysis\n\n`;
     markdown += `**Analyzed Source:** ${displayUrl || (currentInputMode === 'text' ? 'Pasted Content' : urlOrPastedText)}\n`;
     markdown += `**Analysis Timestamp:** ${analysisTimestamp}\n\n`;
 
@@ -412,7 +412,7 @@ export default function VerbalInsightsPage() {
     const markdownData = getAnalysisDataAsMarkdown();
     const timestamp = new Date().toISOString().split('T')[0];
     const safePageTitle = pageTitleFromContent ? pageTitleFromContent.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 50) : (currentInputMode === 'text' ? 'pasted_content' : 'analysis');
-    const filename = `verbal_insights_${safePageTitle}_${timestamp}.md`;
+    const filename = `crowd_voice_${safePageTitle}_${timestamp}.md`;
 
     const blob = new Blob([markdownData], { type: 'text/markdown;charset=utf-8;' });
     const link = document.createElement("a");
@@ -483,7 +483,7 @@ export default function VerbalInsightsPage() {
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const safePageTitle = pageTitleFromContent ? pageTitleFromContent.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 50) : (currentInputMode === 'text' ? 'pasted_content_screenshot' : 'analysis_screenshot');
-      const filename = `verbal_insights_${safePageTitle}_${timestamp}.png`;
+      const filename = `crowd_voice_${safePageTitle}_${timestamp}.png`;
 
       const link = document.createElement('a');
       link.href = imageUrl;
