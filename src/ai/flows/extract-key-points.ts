@@ -21,10 +21,10 @@ export type ExtractKeyPointsInput = z.infer<typeof ExtractKeyPointsInputSchema>;
 const ExtractKeyPointsOutputSchema = z.object({
   keyPoints: z
     .array(z.string())
-    .describe('A list of key discussion points and takeaways from the conversation.'),
+    .describe('A list of concise key discussion points and takeaways from the conversation.'),
   quotes: z
     .array(z.string())
-    .describe('A list of relevant quotes that highlight the key discussion points.'),
+    .describe('A list of relevant direct quotes from the conversation that highlight or exemplify the key discussion points.'),
 });
 export type ExtractKeyPointsOutput = z.infer<typeof ExtractKeyPointsOutputSchema>;
 
@@ -36,16 +36,18 @@ const prompt = ai.definePrompt({
   name: 'extractKeyPointsPrompt',
   input: {schema: ExtractKeyPointsInputSchema},
   output: {schema: ExtractKeyPointsOutputSchema},
-  prompt: `You are an expert in conversation analysis. Your task is to extract the key discussion points and takeaways from the following conversation. Also, provide relevant quotes that highlight these points.
+  prompt: `You are an expert in conversation analysis. Your task is to analyze the following conversation and perform two actions:
+1. Extract the key discussion points and takeaways. These should be concise summaries of the main topics, arguments, or conclusions.
+2. Identify and extract relevant direct quotes from the conversation that highlight, exemplify, or support these key discussion points.
 
-Conversation:
-{{conversation}}
+Conversation to analyze:
+{{{conversation}}}
 
-Key Discussion Points and Takeaways:
-- Key Points:
-{{{keyPoints}}}
-- Quotes:
-{{{quotes}}}`, 
+Please ensure your output is a JSON object. The JSON object must adhere to the specified output schema.
+It should contain a 'keyPoints' array of strings (for the discussion points) and a 'quotes' array of strings (for the direct quotes).
+If, after careful analysis, no specific key discussion points can be identified, return an empty array for 'keyPoints'.
+If no relevant direct quotes can be found to support the key points (or if no key points are found), return an empty array for 'quotes'.
+Focus on extracting meaningful and representative information from the conversation.`,
 });
 
 const extractKeyPointsFlow = ai.defineFlow(
@@ -56,6 +58,12 @@ const extractKeyPointsFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
+    // Ensure that even if the LLM returns null for arrays, we default to empty arrays
+    // to match the schema and prevent downstream errors.
+    return {
+        keyPoints: output?.keyPoints || [],
+        quotes: output?.quotes || [],
+    };
   }
 );
+
