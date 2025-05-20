@@ -4,7 +4,7 @@
 import { useState, type FormEvent, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Globe, Zap } from 'lucide-react';
+import { Globe, Zap, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 
@@ -69,6 +69,10 @@ export function UrlInputForm({ onSubmit, isLoading, initialUrl = '' }: UrlInputF
             {isLoading ? 'Analyzing...' : 'Analyze'}
           </Button>
         </form>
+        <div className="mt-4 text-xs text-muted-foreground flex items-center justify-center">
+          <AlertTriangle className="h-4 w-4 mr-2 text-amber-500" />
+          <span>AI-generated content may contain inaccuracies. Always verify critical information.</span>
+        </div>
       </CardContent>
     </Card>
   );
