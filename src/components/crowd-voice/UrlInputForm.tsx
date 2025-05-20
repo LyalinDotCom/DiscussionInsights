@@ -22,8 +22,10 @@ export function UrlInputForm({ onSubmit, isLoading, initialUrl = '' }: UrlInputF
   const [inputMode, setInputMode] = useState<'url' | 'text'>('url');
 
   useEffect(() => {
-    setCurrentUrl(initialUrl);
-  }, [initialUrl]);
+    if (inputMode === 'url') {
+      setCurrentUrl(initialUrl);
+    }
+  }, [initialUrl, inputMode]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -62,21 +64,21 @@ export function UrlInputForm({ onSubmit, isLoading, initialUrl = '' }: UrlInputF
           </TabsList>
           <form onSubmit={handleSubmit}>
             <TabsContent value="url">
-              <div className="relative flex-grow w-full">
-                <Globe className="absolute left-3 top-[calc(50%-3px)] -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <div className="flex items-center w-full h-12 px-3 rounded-md border border-input bg-background ring-offset-background focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2">
+                <Globe className="h-5 w-5 text-muted-foreground mr-2 shrink-0" />
                 <Input
                   type="url"
                   placeholder="e.g., https://example.com/forum-post"
                   value={currentUrl}
                   onChange={(e) => setCurrentUrl(e.target.value)}
-                  className="pl-10 text-base h-12 rounded-md focus:ring-2 focus:ring-primary"
+                  className="flex-1 text-base bg-transparent border-0 p-0 focus:ring-0 focus-visible:ring-0 focus-visible:outline-none focus-visible:ring-offset-0 placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={isLoading}
                   aria-label="Website URL for analysis"
                 />
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Please note: Video link analysis (e.g., YouTube) is not currently supported. This tool analyzes text-based web content and pasted text.
-                </p>
               </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Please note: Video link analysis (e.g., YouTube) is not currently supported. This tool analyzes text-based web content and pasted text.
+              </p>
             </TabsContent>
             <TabsContent value="text">
               <Textarea
