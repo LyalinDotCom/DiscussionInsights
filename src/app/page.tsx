@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, FileText, ListChecks, MessageSquareText, Link as LinkIcon, Smile, Frown, Meh, QuoteIcon, Tags } from 'lucide-react';
 import { WordCloudDisplay } from '@/components/verbal-insights/WordCloudDisplay';
 import { useToast } from '@/hooks/use-toast';
+import React from 'react';
 
 
 // AI Flow Imports
@@ -22,6 +23,38 @@ import { analyzeSentiment, type AnalyzeSentimentOutput } from '@/ai/flows/analyz
 import { contextualizeLinks, type ContextualizeLinksOutput } from '@/ai/flows/contextualize-links';
 import { generateHeaderImage, type GenerateHeaderImageOutput } from '@/ai/flows/generate-header-image';
 import { generateWordCloud, type GenerateWordCloudOutput } from '@/ai/flows/generate-word-cloud';
+
+// Helper function to render simple inline Markdown (bold, italic)
+const renderMarkdownLine = (line: string, lineKey: string | number): React.ReactNode => {
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  // Regex for **bold** or *italic* or _italic_ (non-greedy)
+  const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|_(.+?)_)/g;
+  let match;
+
+  while ((match = regex.exec(line)) !== null) {
+    // Add text before the match
+    if (match.index > lastIndex) {
+      parts.push(line.substring(lastIndex, match.index));
+    }
+    // Add the bold or italic part
+    if (match[2]) { // **bold**
+      parts.push(<strong key={`${lineKey}-bold-${match.index}`}>{match[2]}</strong>);
+    } else if (match[3]) { // *italic*
+      parts.push(<em key={`${lineKey}-italic1-${match.index}`}>{match[3]}</em>);
+    } else if (match[4]) { // _italic_
+      parts.push(<em key={`${lineKey}-italic2-${match.index}`}>{match[4]}</em>);
+    }
+    lastIndex = regex.lastIndex;
+  }
+
+  // Add any remaining text after the last match
+  if (lastIndex < line.length) {
+    parts.push(line.substring(lastIndex));
+  }
+
+  return <>{parts.map((part, index) => <React.Fragment key={index}>{part}</React.Fragment>)}</>;
+};
 
 
 export default function VerbalInsightsPage() {
@@ -438,7 +471,11 @@ export default function VerbalInsightsPage() {
                 {summaryData?.summary ? (
                   <>
                   {pageTitleFromContent && <div className="text-sm text-muted-foreground mb-2"><strong>Original Page Title:</strong> {pageTitleFromContent}</div>}
-                  <div className="whitespace-pre-wrap">{summaryData.summary}</div>
+                  <div className="whitespace-pre-wrap">
+                    {summaryData.summary.split('\n').map((line, index) => (
+                      <div key={index}>{renderMarkdownLine(line, index)}</div>
+                    ))}
+                  </div>
                   </>
                 ) : (
                   !isLoadingSummary && <p>No summary available.</p>
@@ -541,3 +578,4 @@ export default function VerbalInsightsPage() {
     </>
   );
 }
+
