@@ -96,6 +96,8 @@ export default function VerbalInsightsPage() {
   const [isLoadingActionItems, setIsLoadingActionItems] = useState(false);
   const [errorActionItems, setErrorActionItems] = useState<string | null>(null);
 
+  const [isTakingScreenshot, setIsTakingScreenshot] = useState(false); // New state for screenshot loading
+
   const [showFloatingActions, setShowFloatingActions] = useState(false);
   const actionsCardWrapperRef = useRef<HTMLDivElement>(null);
 
@@ -114,6 +116,7 @@ export default function VerbalInsightsPage() {
     setWordCloudData(null); setIsLoadingWordCloud(false); setErrorWordCloud(null);
     setActionItemsData(null); setIsLoadingActionItems(false); setErrorActionItems(null);
     setPageTitleFromContent(null);
+    setIsTakingScreenshot(false);
   }, []);
 
   const handleUrlSubmit = useCallback(async (submittedUrl: string) => {
@@ -325,8 +328,82 @@ export default function VerbalInsightsPage() {
     }
   }, [getAnalysisDataAsMarkdown, hasAnyData, pageTitleFromContent, toast]);
 
-  const exportButtonsDisabled = isAnyLoading || !hasAnyData;
-  const canRefresh = !!(displayUrl || url) && !isLoadingUrl && !isAnyLoading;
+
+  const handleDownloadScreenshot = useCallback(async () => {
+    if (!hasAnyData) {
+      toast({ title: "No Data", description: "Please analyze a URL first to generate data for a screenshot.", variant: "destructive" });
+      return;
+    }
+    setIsTakingScreenshot(true);
+    toast({
+      title: "Screen Capture",
+      description: "Please select the current browser tab or screen to capture. This will capture the visible area.",
+      duration: 7000,
+    });
+
+    try {
+      const mediaStream = await navigator.mediaDevices.getDisplayMedia({
+        video: { cursor: "never" } as MediaTrackConstraints, // Type assertion for cursor
+        audio: false,
+      });
+      
+      const track = mediaStream.getVideoTracks()[0];
+      
+      // Create a video element to play the stream
+      const video = document.createElement('video');
+      video.srcObject = mediaStream;
+      await new Promise(resolve => video.onloadedmetadata = resolve);
+      video.play();
+
+      // Wait for the video to be ready (a short delay can help ensure the frame is current)
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext('2d');
+      
+      if (!context) {
+        throw new Error('Failed to get canvas context');
+      }
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageUrl = canvas.toDataURL('image/png');
+
+      // Stop the tracks and video
+      track.stop();
+      video.srcObject = null;
+
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const safePageTitle = pageTitleFromContent ? pageTitleFromContent.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 50) : 'analysis';
+      const filename = `verbal_insights_screenshot_${safePageTitle}_${timestamp}.png`;
+
+      const link = document.createElement('a');
+      link.href = imageUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({ title: "Screenshot Downloaded", description: `${filename} saved successfully.` });
+
+    } catch (error: any) {
+      console.error("Error taking screenshot:", error);
+      if (error.name === 'NotAllowedError') {
+        toast({ title: "Screenshot Cancelled", description: "Screen capture permission was denied or cancelled.", variant: "destructive" });
+      } else {
+        toast({ title: "Screenshot Failed", description: `Could not capture screenshot: ${error.message}`, variant: "destructive" });
+      }
+    } finally {
+      setIsTakingScreenshot(false);
+    }
+  }, [hasAnyData, pageTitleFromContent, toast]);
+
+
+  const exportButtonsDisabled = isAnyLoading || !hasAnyData || isTakingScreenshot;
+  const canRefresh = !!(displayUrl || url) && !isLoadingUrl && !isAnyLoading && !isTakingScreenshot;
+
 
   useEffect(() => {
     const handleScroll = () => {
@@ -471,7 +548,7 @@ export default function VerbalInsightsPage() {
       <div className="min-h-screen container mx-auto px-4 py-8 relative z-10">
         <UrlInputForm 
           onSubmit={(newUrl) => { setUrl(newUrl); handleUrlSubmit(newUrl); }} 
-          isLoading={isLoadingUrl} 
+          isLoading={isLoadingUrl || isTakingScreenshot} // Disable form while taking screenshot
           initialUrl={url} 
         />
 
@@ -488,9 +565,11 @@ export default function VerbalInsightsPage() {
           onRefresh={handleRefreshAnalysis}
           onCopyToClipboard={handleCopyToClipboard}
           onDownloadMarkdown={handleDownloadMarkdown}
+          onDownloadScreenshot={handleDownloadScreenshot}
           canRefresh={canRefresh}
           exportButtonsDisabled={exportButtonsDisabled}
-          isLoading={isAnyLoading || isLoadingUrl}
+          isLoading={isAnyLoading || isLoadingUrl || isTakingScreenshot}
+          isTakingScreenshot={isTakingScreenshot}
           isVisible={showFloatingActions && hasAnyData}
         />
 
@@ -501,9 +580,11 @@ export default function VerbalInsightsPage() {
                 onRefresh={handleRefreshAnalysis}
                 onCopyToClipboard={handleCopyToClipboard}
                 onDownloadMarkdown={handleDownloadMarkdown}
+                onDownloadScreenshot={handleDownloadScreenshot}
                 canRefresh={canRefresh}
                 exportButtonsDisabled={exportButtonsDisabled}
                 isLoading={isAnyLoading || isLoadingUrl}
+                isTakingScreenshot={isTakingScreenshot}
                 hasData={hasAnyData} 
               />
             </div>
