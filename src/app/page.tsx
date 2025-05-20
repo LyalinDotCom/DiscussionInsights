@@ -60,12 +60,13 @@ const renderMarkdownLine = (line: string, lineKey: string | number): React.React
 const aiDisclaimer = "Disclaimer: AI-generated content may contain inaccuracies. Always verify critical information.";
 
 export default function VerbalInsightsPage() {
-  const [url, setUrl] = useState(''); 
+  const [urlOrPastedText, setUrlOrPastedText] = useState(''); 
+  const [currentInputMode, setCurrentInputMode] = useState<'url' | 'text'>('url');
   const [fetchedPageContent, setFetchedPageContent] = useState<string | null>(null);
-  const [isLoadingUrl, setIsLoadingUrl] = useState(false);
+  const [isLoadingUrl, setIsLoadingUrl] = useState(false); // Used for URL fetching or indicating text processing start
   const [urlError, setUrlError] = useState<string | null>(null);
   const [analysisInitiated, setAnalysisInitiated] = useState(false);
-  const [displayUrl, setDisplayUrl] = useState<string | null>(null); 
+  const [displayUrl, setDisplayUrl] = useState<string | null>(null); // Shows "Pasted Content" or actual URL
 
   const [headerImageData, setHeaderImageData] = useState<GenerateHeaderImageOutput | null>(null);
   const [isLoadingHeaderImage, setIsLoadingHeaderImage] = useState(false);
@@ -119,36 +120,48 @@ export default function VerbalInsightsPage() {
     setIsTakingScreenshot(false);
   }, []);
 
-  const handleUrlSubmit = useCallback(async (submittedUrl: string) => {
-    if (!submittedUrl) return;
+  const handleAnalysisSubmit = useCallback(async (submittedValue: string, inputMode: 'url' | 'text') => {
+    if (!submittedValue) return;
 
     resetAllStates();
-    setIsLoadingUrl(true);
+    setIsLoadingUrl(true); // General loading indicator for input processing
     setUrlError(null);
     setAnalysisInitiated(true);
-    setDisplayUrl(submittedUrl); 
+    setCurrentInputMode(inputMode);
+    setUrlOrPastedText(submittedValue);
 
-    const result = await fetchUrlContent(submittedUrl);
-    setIsLoadingUrl(false);
+    if (inputMode === 'url') {
+      setDisplayUrl(submittedValue);
+      const result = await fetchUrlContent(submittedValue);
+      setIsLoadingUrl(false);
 
-    if (result.error) {
-      setUrlError(result.error);
-      setFetchedPageContent(null);
-      setDisplayUrl(submittedUrl); 
-    } else if (result.content) {
-      setFetchedPageContent(result.content);
-      const finalUrl = result.finalUrl || submittedUrl;
-      setDisplayUrl(finalUrl); 
-      setUrl(finalUrl); 
+      if (result.error) {
+        setUrlError(result.error);
+        setFetchedPageContent(null);
+      } else if (result.content) {
+        setFetchedPageContent(result.content);
+        const finalUrl = result.finalUrl || submittedValue;
+        setDisplayUrl(finalUrl); 
+        setUrlOrPastedText(finalUrl); // Store the potentially resolved URL
 
-      const titleMatch = result.content.match(/<title>(.*?)<\/title>/i);
-      if (titleMatch && titleMatch[1]) {
-        setPageTitleFromContent(titleMatch[1].trim());
+        const titleMatch = result.content.match(/<title>(.*?)<\/title>/i);
+        if (titleMatch && titleMatch[1]) {
+          setPageTitleFromContent(titleMatch[1].trim());
+        }
+      } else {
+        setUrlError("Failed to fetch content or content was empty.");
+        setFetchedPageContent(null);
       }
-    } else {
-      setUrlError("Failed to fetch content or content was empty.");
-      setFetchedPageContent(null);
-      setDisplayUrl(submittedUrl);
+    } else { // inputMode === 'text'
+      setDisplayUrl("Pasted Content");
+      setFetchedPageContent(submittedValue);
+      setPageTitleFromContent("Pasted Analysis"); // Or derive from first few words
+      setIsLoadingUrl(false); // Text processing done, analysis will start
+      
+      // For pasted text, link contextualization is not applicable
+      setIsLoadingLinks(false);
+      setLinksData(null);
+      setErrorLinks("Link contextualization is not applicable for pasted text.");
     }
   }, [resetAllStates]);
   
@@ -156,7 +169,7 @@ export default function VerbalInsightsPage() {
   useEffect(() => {
     if (fetchedPageContent && displayUrl) { 
       const contentToAnalyze = fetchedPageContent; 
-      const currentDisplayUrl = displayUrl; 
+      const currentDisplayReference = displayUrl; // "Pasted Content" or URL
 
       setIsLoadingHeaderImage(true);
       generateHeaderImage({ text: contentToAnalyze.substring(0, 1000) }) 
@@ -168,7 +181,8 @@ export default function VerbalInsightsPage() {
         .finally(() => setIsLoadingHeaderImage(false));
 
       setIsLoadingSummary(true);
-      summarizeDiscussion({ url: currentDisplayUrl, content: contentToAnalyze })
+      // Pass "Pasted Content" or actual URL to summarizeDiscussion
+      summarizeDiscussion({ url: currentInputMode === 'url' ? currentDisplayReference : "Pasted Content", content: contentToAnalyze })
         .then(setSummaryData)
         .catch(err => setErrorSummary(err.message || "Failed to summarize discussion."))
         .finally(() => setIsLoadingSummary(false));
@@ -185,11 +199,20 @@ export default function VerbalInsightsPage() {
         .catch(err => setErrorSentiment(err.message || "Failed to analyze sentiment."))
         .finally(() => setIsLoadingSentiment(false));
 
-      setIsLoadingLinks(true);
-      contextualizeLinks({ pageContent: contentToAnalyze, sourceUrl: currentDisplayUrl })
-        .then(setLinksData)
-        .catch(err => setErrorLinks(err.message || "Failed to contextualize links."))
-        .finally(() => setIsLoadingLinks(false));
+      if (currentInputMode === 'url' && currentDisplayReference !== "Pasted Content") {
+        setIsLoadingLinks(true);
+        setErrorLinks(null); // Clear previous error if any
+        contextualizeLinks({ pageContent: contentToAnalyze, sourceUrl: currentDisplayReference })
+          .then(setLinksData)
+          .catch(err => setErrorLinks(err.message || "Failed to contextualize links."))
+          .finally(() => setIsLoadingLinks(false));
+      } else {
+        // Handled in handleAnalysisSubmit for pasted text
+         setLinksData(null);
+         setIsLoadingLinks(false);
+         if (!errorLinks) setErrorLinks("Link contextualization is not applicable for pasted text.");
+
+      }
       
       setIsLoadingWordCloud(true);
       generateWordCloud({ textContent: contentToAnalyze })
@@ -203,7 +226,7 @@ export default function VerbalInsightsPage() {
         .catch(err => setErrorActionItems(err.message || "Failed to extract action items."))
         .finally(() => setIsLoadingActionItems(false));
     }
-  }, [fetchedPageContent, displayUrl]); 
+  }, [fetchedPageContent, displayUrl, currentInputMode, errorLinks]); 
 
   const getSentimentIcon = (sentiment?: string) => {
     if (!sentiment) return MessageSquareText;
@@ -218,7 +241,7 @@ export default function VerbalInsightsPage() {
     
     const analysisTimestamp = new Date().toISOString();
     let markdown = `# Verbal Insights Analysis\n\n`;
-    markdown += `**Analyzed URL:** ${displayUrl || url}\n`; 
+    markdown += `**Analyzed Source:** ${displayUrl || (currentInputMode === 'text' ? 'Pasted Content' : urlOrPastedText)}\n`; 
     markdown += `**Analysis Timestamp:** ${analysisTimestamp}\n\n`;
 
     if (summaryData?.summary) {
@@ -260,7 +283,7 @@ export default function VerbalInsightsPage() {
       markdown += `\n`;
     }
 
-    if (linksData && linksData.length > 0) {
+    if (linksData && linksData.length > 0 && currentInputMode === 'url') {
       markdown += `## Contextualized Links\n`;
       linksData.forEach((linkItem, index) => {
         markdown += `${index + 1}. **[${linkItem.url}](${linkItem.url})**\n`;
@@ -272,22 +295,21 @@ export default function VerbalInsightsPage() {
     markdown += `---\n${aiDisclaimer}\n`;
 
     return markdown;
-  }, [analysisInitiated, displayUrl, url, summaryData, keyPointsData, sentimentData, linksData, pageTitleFromContent, wordCloudData, actionItemsData]);
+  }, [analysisInitiated, displayUrl, urlOrPastedText, currentInputMode, summaryData, keyPointsData, sentimentData, linksData, pageTitleFromContent, wordCloudData, actionItemsData]);
 
-  const hasAnyData = !!(summaryData || keyPointsData || sentimentData || linksData || headerImageData || wordCloudData || actionItemsData);
+  const hasAnyData = !!(summaryData || keyPointsData || sentimentData || (linksData && currentInputMode === 'url') || headerImageData || wordCloudData || actionItemsData);
   const isAnyLoading = isLoadingUrl || isLoadingHeaderImage || isLoadingSummary || isLoadingKeyPoints || isLoadingSentiment || isLoadingLinks || isLoadingWordCloud || isLoadingActionItems;
 
 
   const handleRefreshAnalysis = () => {
-    const urlToRefresh = displayUrl || url; 
-    if (urlToRefresh) {
-      handleUrlSubmit(urlToRefresh);
+    if (urlOrPastedText) { // Use the stored URL or text
+      handleAnalysisSubmit(urlOrPastedText, currentInputMode);
     }
   };
 
   const handleCopyToClipboard = useCallback(async () => {
     if (!hasAnyData) {
-        toast({ title: "No Data", description: "Please analyze a URL first to generate data.", variant: "destructive" });
+        toast({ title: "No Data", description: "Please analyze a URL or paste text first to generate data.", variant: "destructive" });
         return;
     }
     const markdownData = getAnalysisDataAsMarkdown();
@@ -302,12 +324,12 @@ export default function VerbalInsightsPage() {
 
   const handleDownloadMarkdown = useCallback(() => {
     if (!hasAnyData) {
-        toast({ title: "No Data", description: "Please analyze a URL first to generate data.", variant: "destructive" });
+        toast({ title: "No Data", description: "Please analyze a URL or paste text first to generate data.", variant: "destructive" });
         return;
     }
     const markdownData = getAnalysisDataAsMarkdown();
     const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    const safePageTitle = pageTitleFromContent ? pageTitleFromContent.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 50) : 'analysis';
+    const safePageTitle = pageTitleFromContent ? pageTitleFromContent.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 50) : (currentInputMode === 'text' ? 'pasted_content' : 'analysis');
     const filename = `verbal_insights_${safePageTitle}_${timestamp}.md`;
     
     const blob = new Blob([markdownData], { type: 'text/markdown;charset=utf-8;' });
@@ -326,12 +348,12 @@ export default function VerbalInsightsPage() {
     } else {
       toast({ title: "Download Failed", description: "Your browser does not support automatic downloads.", variant: "destructive" });
     }
-  }, [getAnalysisDataAsMarkdown, hasAnyData, pageTitleFromContent, toast]);
+  }, [getAnalysisDataAsMarkdown, hasAnyData, pageTitleFromContent, currentInputMode, toast]);
 
 
   const handleDownloadScreenshot = useCallback(async () => {
     if (!hasAnyData) {
-      toast({ title: "No Data", description: "Please analyze a URL first to generate data for a screenshot.", variant: "destructive" });
+      toast({ title: "No Data", description: "Please analyze first to generate data for a screenshot.", variant: "destructive" });
       return;
     }
     setIsTakingScreenshot(true);
@@ -342,7 +364,6 @@ export default function VerbalInsightsPage() {
     });
 
     try {
-      // Ensure we're using the standard Screen Capture API method
       const mediaStream = await navigator.mediaDevices.getDisplayMedia({
         video: { cursor: "never" } as MediaTrackConstraints, 
         audio: false,
@@ -356,8 +377,7 @@ export default function VerbalInsightsPage() {
       await new Promise<void>((resolve) => {
         video.onloadedmetadata = () => {
           video.play();
-          // A short delay to ensure the video frame is current before capturing
-          setTimeout(() => resolve(), 200); 
+          setTimeout(() => resolve(), 300); // Increased delay
         };
       });
 
@@ -367,7 +387,7 @@ export default function VerbalInsightsPage() {
       const context = canvas.getContext('2d');
       
       if (!context) {
-        track.stop(); // Stop the track if canvas context fails
+        track.stop(); 
         video.srcObject = null;
         throw new Error('Failed to get canvas context');
       }
@@ -379,8 +399,8 @@ export default function VerbalInsightsPage() {
 
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const safePageTitle = pageTitleFromContent ? pageTitleFromContent.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 50) : 'analysis';
-      const filename = `verbal_insights_screenshot_${safePageTitle}_${timestamp}.png`;
+      const safePageTitle = pageTitleFromContent ? pageTitleFromContent.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 50) : (currentInputMode === 'text' ? 'pasted_content_screenshot' : 'analysis_screenshot');
+      const filename = `verbal_insights_${safePageTitle}_${timestamp}.png`;
 
       const link = document.createElement('a');
       link.href = imageUrl;
@@ -401,11 +421,11 @@ export default function VerbalInsightsPage() {
     } finally {
       setIsTakingScreenshot(false);
     }
-  }, [hasAnyData, pageTitleFromContent, toast]);
+  }, [hasAnyData, pageTitleFromContent, currentInputMode, toast]);
 
 
   const exportButtonsDisabled = isAnyLoading || !hasAnyData || isTakingScreenshot;
-  const canRefresh = !!(displayUrl || url) && !isLoadingUrl && !isAnyLoading && !isTakingScreenshot;
+  const canRefresh = !!(urlOrPastedText) && !isLoadingUrl && !isAnyLoading && !isTakingScreenshot;
 
 
   useEffect(() => {
@@ -428,7 +448,6 @@ export default function VerbalInsightsPage() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [analysisInitiated, isAnyLoading, hasAnyData]); 
 
-  // Individual copy handlers
   const handleCopySection = useCallback(async (content: string | null, sectionName: string) => {
     if (!content) {
       toast({ title: `No ${sectionName} Data`, description: `No ${sectionName.toLowerCase()} data to copy.`, variant: "destructive" });
@@ -511,14 +530,14 @@ export default function VerbalInsightsPage() {
   }, [actionItemsData, handleCopySection]);
 
   const handleCopyLinks = useCallback(() => {
-    if (!linksData || linksData.length === 0) {
+    if (!linksData || linksData.length === 0 || currentInputMode === 'text') {
       handleCopySection(null, "Links");
       return;
     }
     let textToCopy = linksData.map((linkItem, index) => `${index + 1}. ${linkItem.url}\n   Context: ${linkItem.context}`).join('\n\n');
     textToCopy += `\n\n---\n${aiDisclaimer}`;
     handleCopySection(textToCopy, "Contextualized Links");
-  }, [linksData, handleCopySection]);
+  }, [linksData, currentInputMode, handleCopySection]);
 
   return (
     <>
@@ -550,9 +569,9 @@ export default function VerbalInsightsPage() {
 
       <div className="min-h-screen container mx-auto px-4 py-8 relative z-10">
         <UrlInputForm 
-          onSubmit={(newUrl) => { setUrl(newUrl); handleUrlSubmit(newUrl); }} 
+          onSubmit={handleAnalysisSubmit} 
           isLoading={isLoadingUrl || isTakingScreenshot}
-          initialUrl={url} 
+          initialUrl={currentInputMode === 'url' ? urlOrPastedText : ''} 
         />
 
         {urlError && (
@@ -562,7 +581,7 @@ export default function VerbalInsightsPage() {
           </Alert>
         )}
 
-        {isLoadingUrl && <LoadingIndicator text="Fetching URL content..."/>}
+        {isLoadingUrl && <LoadingIndicator text={currentInputMode === 'url' ? "Fetching URL content..." : "Processing text..."}/>}
 
         <FloatingActionButtons
           onRefresh={handleRefreshAnalysis}
@@ -602,7 +621,7 @@ export default function VerbalInsightsPage() {
               >
                 {summaryData?.summary ? (
                   <>
-                  {pageTitleFromContent && <div className="text-sm text-muted-foreground mb-2"><strong>Original Page Title:</strong> {pageTitleFromContent}</div>}
+                  {pageTitleFromContent && <div className="text-sm text-muted-foreground mb-2"><strong>Original {currentInputMode === 'url' ? 'Page Title' : 'Source'}:</strong> {pageTitleFromContent}</div>}
                   <div className="whitespace-pre-wrap">
                     {summaryData.summary.split('\n').map((line, index) => (
                       <div key={index}>{renderMarkdownLine(line, index)}</div>
@@ -703,9 +722,9 @@ export default function VerbalInsightsPage() {
                 isLoading={isLoadingLinks} 
                 error={errorLinks} 
                 className="md:col-span-2"
-                onCopy={(linksData && linksData.length > 0) ? handleCopyLinks : undefined}
+                onCopy={(linksData && linksData.length > 0 && currentInputMode === 'url') ? handleCopyLinks : undefined}
               >
-                {linksData && linksData.length > 0 ? (
+                {linksData && linksData.length > 0 && currentInputMode === 'url' ? (
                   <ul className="space-y-4">
                     {linksData.map((linkItem, index) => (
                       <li key={`link-${index}`} className="border p-3 rounded-md shadow-sm hover:shadow-md transition-shadow">
@@ -717,7 +736,9 @@ export default function VerbalInsightsPage() {
                     ))}
                   </ul>
                 ) : (
-                  !isLoadingLinks && <p>No links found or contextualized.</p>
+                  !isLoadingLinks && (
+                    <p>{errorLinks || "No links found or contextualized."}</p>
+                  )
                 )}
               </AnalysisSection>
             </div>

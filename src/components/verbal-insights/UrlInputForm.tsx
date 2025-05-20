@@ -4,71 +4,108 @@
 import { useState, type FormEvent, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Globe, Zap, AlertTriangle } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Globe, Zap, AlertTriangle, FileText as FileTextIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 
 interface UrlInputFormProps {
-  onSubmit: (url: string) => void;
+  onSubmit: (value: string, inputMode: 'url' | 'text') => void;
   isLoading: boolean;
-  initialUrl?: string; // To sync with parent's URL state for refresh scenarios
+  initialUrl?: string; 
 }
 
 export function UrlInputForm({ onSubmit, isLoading, initialUrl = '' }: UrlInputFormProps) {
   const [currentUrl, setCurrentUrl] = useState(initialUrl);
+  const [pastedText, setPastedText] = useState('');
+  const [inputMode, setInputMode] = useState<'url' | 'text'>('url');
 
   useEffect(() => {
-    // Keep local state in sync if parent's URL changes (e.g., after refresh uses displayUrl)
     setCurrentUrl(initialUrl);
   }, [initialUrl]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (currentUrl.trim()) {
+    if (inputMode === 'url' && currentUrl.trim()) {
       let processedUrl = currentUrl.trim();
       if (!processedUrl.startsWith('http://') && !processedUrl.startsWith('https://')) {
         processedUrl = 'https://' + processedUrl;
       }
-      onSubmit(processedUrl);
+      onSubmit(processedUrl, 'url');
+    } else if (inputMode === 'text' && pastedText.trim()) {
+      onSubmit(pastedText.trim(), 'text');
     }
   };
+
+  const isSubmitDisabled = isLoading || 
+                           (inputMode === 'url' && !currentUrl.trim()) ||
+                           (inputMode === 'text' && !pastedText.trim());
 
   return (
     <Card className="mb-8 shadow-xl">
       <CardHeader>
         <CardTitle className="text-2xl font-bold text-center">Verbal Insights</CardTitle>
         <CardDescription className="text-center text-muted-foreground">
-          Paste a URL to analyze its discussion content.
+          Analyze discussion content by providing a URL or pasting text directly.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row items-center gap-3">
-          <div className="relative flex-grow w-full">
-            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <Input
-              type="url"
-              placeholder="e.g., https://example.com/forum-post"
-              value={currentUrl}
-              onChange={(e) => setCurrentUrl(e.target.value)}
-              className="pl-10 text-base h-12 rounded-md focus:ring-2 focus:ring-primary"
-              required
-              disabled={isLoading}
-              aria-label="Website URL for analysis"
-            />
-          </div>
-          <Button 
-            type="submit" 
-            disabled={isLoading || !currentUrl.trim()} 
-            className={cn(
-              "w-full sm:w-auto px-6 h-12 text-base rounded-md transition-all duration-150 ease-in-out",
-              "hover:shadow-lg focus:ring-2 focus:ring-primary focus:ring-offset-2",
-              isLoading ? "bg-muted text-muted-foreground" : "bg-primary hover:bg-primary/90 text-primary-foreground"
-            )}
-          >
-            <Zap className="mr-2 h-5 w-5" />
-            {isLoading ? 'Analyzing...' : 'Analyze'}
-          </Button>
-        </form>
+        <Tabs defaultValue="url" value={inputMode} onValueChange={(value) => setInputMode(value as 'url' | 'text')} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="url" disabled={isLoading}>
+              <Globe className="mr-2 h-4 w-4" /> Analyze URL
+            </TabsTrigger>
+            <TabsTrigger value="text" disabled={isLoading}>
+              <FileTextIcon className="mr-2 h-4 w-4" /> Paste Text
+            </TabsTrigger>
+          </TabsList>
+          <form onSubmit={handleSubmit}>
+            <TabsContent value="url">
+              <div className="relative flex-grow w-full">
+                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  type="url"
+                  placeholder="e.g., https://example.com/forum-post"
+                  value={currentUrl}
+                  onChange={(e) => setCurrentUrl(e.target.value)}
+                  className="pl-10 text-base h-12 rounded-md focus:ring-2 focus:ring-primary"
+                  disabled={isLoading}
+                  aria-label="Website URL for analysis"
+                />
+              </div>
+            </TabsContent>
+            <TabsContent value="text">
+              <Textarea
+                placeholder="Paste your discussion content here (min. 50 characters, max. 100,000 characters)..."
+                value={pastedText}
+                onChange={(e) => setPastedText(e.target.value)}
+                className="text-base min-h-[150px] rounded-md focus:ring-2 focus:ring-primary"
+                disabled={isLoading}
+                aria-label="Pasted text for analysis"
+                rows={8}
+                minLength={50}
+                maxLength={100000} 
+              />
+               <p className="mt-2 text-xs text-muted-foreground">
+                For best results, paste content between 50 and 100,000 characters.
+              </p>
+            </TabsContent>
+            
+            <Button 
+              type="submit" 
+              disabled={isSubmitDisabled} 
+              className={cn(
+                "w-full mt-4 px-6 h-12 text-base rounded-md transition-all duration-150 ease-in-out",
+                "hover:shadow-lg focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                isLoading ? "bg-muted text-muted-foreground" : "bg-primary hover:bg-primary/90 text-primary-foreground"
+              )}
+            >
+              <Zap className="mr-2 h-5 w-5" />
+              {isLoading ? 'Analyzing...' : 'Analyze'}
+            </Button>
+          </form>
+        </Tabs>
         <div className="mt-4 text-xs text-muted-foreground flex items-center justify-center">
           <AlertTriangle className="h-4 w-4 mr-2 text-amber-500" />
           <span>AI-generated content may contain inaccuracies. Always verify critical information.</span>
