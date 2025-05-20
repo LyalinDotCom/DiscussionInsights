@@ -60,7 +60,7 @@ const renderMarkdownLine = (line: string, lineKey: string | number): React.React
 const aiDisclaimer = "Disclaimer: AI-generated content may contain inaccuracies. Always verify critical information.";
 
 export default function VerbalInsightsPage() {
-  const [urlOrPastedText, setUrlOrPastedText] = useState(''); 
+  const [urlOrPastedText, setUrlOrPastedText] = useState('');
   const [currentInputMode, setCurrentInputMode] = useState<'url' | 'text'>('url');
   const [fetchedPageContent, setFetchedPageContent] = useState<string | null>(null);
   const [isLoadingUrl, setIsLoadingUrl] = useState(false); // Used for URL fetching or indicating text processing start
@@ -86,7 +86,7 @@ export default function VerbalInsightsPage() {
   const [linksData, setLinksData] = useState<ContextualizeLinksOutput | null>(null);
   const [isLoadingLinks, setIsLoadingLinks] = useState(false);
   const [errorLinks, setErrorLinks] = useState<string | null>(null);
-  
+
   const [pageTitleFromContent, setPageTitleFromContent] = useState<string | null>(null);
 
   const [wordCloudData, setWordCloudData] = useState<GenerateWordCloudOutput | null>(null);
@@ -107,8 +107,8 @@ export default function VerbalInsightsPage() {
   const resetAllStates = useCallback(() => {
     setFetchedPageContent(null);
     setUrlError(null);
-    setAnalysisInitiated(false); 
-    
+    setAnalysisInitiated(false);
+
     setHeaderImageData(null); setIsLoadingHeaderImage(false);
     setSummaryData(null); setIsLoadingSummary(false); setErrorSummary(null);
     setKeyPointsData(null); setIsLoadingKeyPoints(false); setErrorKeyPoints(null);
@@ -124,11 +124,11 @@ export default function VerbalInsightsPage() {
     if (!submittedValue) return;
 
     resetAllStates();
-    setIsLoadingUrl(true); 
+    setIsLoadingUrl(true);
     setUrlError(null);
     setCurrentInputMode(inputMode);
-    setUrlOrPastedText(submittedValue); 
-    setAnalysisInitiated(true); 
+    setUrlOrPastedText(submittedValue);
+    setAnalysisInitiated(true);
 
     if (inputMode === 'url') {
       setDisplayUrl(submittedValue);
@@ -138,12 +138,12 @@ export default function VerbalInsightsPage() {
       if (result.error) {
         setUrlError(result.error);
         setFetchedPageContent(null);
-        setAnalysisInitiated(false); 
+        setAnalysisInitiated(false);
       } else if (result.content) {
         setFetchedPageContent(result.content);
         const finalUrl = result.finalUrl || submittedValue;
-        setDisplayUrl(finalUrl); 
-        setUrlOrPastedText(finalUrl); 
+        setDisplayUrl(finalUrl);
+        setUrlOrPastedText(finalUrl);
 
         const titleMatch = result.content.match(/<title>(.*?)<\/title>/i);
         if (titleMatch && titleMatch[1]) {
@@ -152,20 +152,20 @@ export default function VerbalInsightsPage() {
       } else {
         setUrlError("Failed to fetch content or content was empty.");
         setFetchedPageContent(null);
-        setAnalysisInitiated(false); 
+        setAnalysisInitiated(false);
       }
-    } else { 
+    } else {
       setDisplayUrl("Pasted Content");
       setFetchedPageContent(submittedValue);
-      setPageTitleFromContent("Pasted Analysis"); 
-      setIsLoadingUrl(false); 
-      
+      setPageTitleFromContent("Pasted Analysis");
+      setIsLoadingUrl(false);
+
       setIsLoadingLinks(false);
       setLinksData(null);
       // setErrorLinks("Link contextualization is not applicable for pasted text."); // Error set in main useEffect now
     }
   }, [resetAllStates]);
-  
+
   // Individual Refresh Handlers
   const handleRefreshSummary = useCallback(async () => {
     if (!fetchedPageContent) return;
@@ -232,9 +232,9 @@ export default function VerbalInsightsPage() {
 
 
   useEffect(() => {
-    if (fetchedPageContent && displayUrl && analysisInitiated) { 
-      const contentToAnalyze = fetchedPageContent; 
-      const currentDisplayReference = displayUrl; 
+    if (fetchedPageContent && displayUrl && analysisInitiated) {
+      const contentToAnalyze = fetchedPageContent;
+      const currentDisplayReference = displayUrl;
 
       handleRefreshSummary();
       handleRefreshKeyPoints();
@@ -250,17 +250,17 @@ export default function VerbalInsightsPage() {
          if (!errorLinks) setErrorLinks("Link contextualization is not applicable for pasted text.");
       }
     }
-  }, [fetchedPageContent, displayUrl, currentInputMode, analysisInitiated, errorLinks, 
-      handleRefreshSummary, handleRefreshKeyPoints, handleRefreshSentiment, 
-      handleRefreshLinks, handleRefreshWordCloud, handleRefreshActionItems]); 
+  }, [fetchedPageContent, displayUrl, currentInputMode, analysisInitiated, errorLinks,
+      handleRefreshSummary, handleRefreshKeyPoints, handleRefreshSentiment,
+      handleRefreshLinks, handleRefreshWordCloud, handleRefreshActionItems]);
 
 
   useEffect(() => {
     if (!analysisInitiated) {
-      setHeaderImageData(null); 
+      setHeaderImageData(null);
       return;
     }
-    
+
     if (!fetchedPageContent) {
         return;
     }
@@ -269,9 +269,9 @@ export default function VerbalInsightsPage() {
 
     if (wordCloudData && wordCloudData.length > 0) {
       const topWords = wordCloudData
-        .slice() 
-        .sort((a, b) => b.value - a.value) 
-        .slice(0, 7) 
+        .slice()
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 7)
         .map(item => item.text)
         .join(', ');
       if (topWords) {
@@ -282,13 +282,13 @@ export default function VerbalInsightsPage() {
     if (!imagePromptText && pageTitleFromContent) {
       imagePromptText = `Create an artistic, abstract, and visually compelling wide header image inspired by the title: "${pageTitleFromContent}". The image should evoke the general theme and sentiment without depicting any text or the title itself. Focus on atmosphere and conceptual representation.`;
     }
-    
+
     if (!imagePromptText && fetchedPageContent) {
       const contentSnippet = fetchedPageContent.substring(0, 300);
       imagePromptText = `Create an artistic, abstract, and visually compelling wide header image representing the mood and key themes from the following text snippet: "${contentSnippet}". The image should be purely visual, without any text. Focus on atmosphere and conceptual representation.`;
     }
-    
-    if (!imagePromptText) { 
+
+    if (!imagePromptText) {
         imagePromptText = "Generate an abstract, artistic, wide header image with a theme of communication, technology, or insight. The image should be purely visual, without any text. Focus on atmosphere and conceptual representation.";
     }
 
@@ -297,11 +297,17 @@ export default function VerbalInsightsPage() {
       .then(setHeaderImageData)
       .catch(err => {
         console.error("Failed to generate header image:", err.message);
-        setHeaderImageData(null); 
+        toast({
+          title: "Header Image Generation Failed",
+          description: "The AI image service encountered an error. Analysis will continue without a custom header image.",
+          variant: "destructive",
+          duration: 7000,
+        });
+        setHeaderImageData(null);
       })
       .finally(() => setIsLoadingHeaderImage(false));
 
-  }, [wordCloudData, pageTitleFromContent, fetchedPageContent, analysisInitiated]);
+  }, [wordCloudData, pageTitleFromContent, fetchedPageContent, analysisInitiated, toast]);
 
 
   const getSentimentIcon = (sentiment?: string) => {
@@ -311,13 +317,13 @@ export default function VerbalInsightsPage() {
     if (lowerSentiment.includes("negative")) return Frown;
     return Meh;
   };
-  
+
   const getAnalysisDataAsMarkdown = useCallback(() => {
     if (!analysisInitiated) return "";
-    
+
     const analysisTimestamp = new Date().toISOString();
     let markdown = `# Verbal Insights Analysis\n\n`;
-    markdown += `**Analyzed Source:** ${displayUrl || (currentInputMode === 'text' ? 'Pasted Content' : urlOrPastedText)}\n`; 
+    markdown += `**Analyzed Source:** ${displayUrl || (currentInputMode === 'text' ? 'Pasted Content' : urlOrPastedText)}\n`;
     markdown += `**Analysis Timestamp:** ${analysisTimestamp}\n\n`;
 
     if (summaryData?.summary) {
@@ -378,7 +384,7 @@ export default function VerbalInsightsPage() {
 
 
   const handleGlobalRefreshAnalysis = () => {
-    if (urlOrPastedText) { 
+    if (urlOrPastedText) {
       handleAnalysisSubmit(urlOrPastedText, currentInputMode);
     }
   };
@@ -404,10 +410,10 @@ export default function VerbalInsightsPage() {
         return;
     }
     const markdownData = getAnalysisDataAsMarkdown();
-    const timestamp = new Date().toISOString().split('T')[0]; 
+    const timestamp = new Date().toISOString().split('T')[0];
     const safePageTitle = pageTitleFromContent ? pageTitleFromContent.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 50) : (currentInputMode === 'text' ? 'pasted_content' : 'analysis');
     const filename = `verbal_insights_${safePageTitle}_${timestamp}.md`;
-    
+
     const blob = new Blob([markdownData], { type: 'text/markdown;charset=utf-8;' });
     const link = document.createElement("a");
 
@@ -441,20 +447,20 @@ export default function VerbalInsightsPage() {
 
     try {
       const mediaStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { cursor: "never" } as MediaTrackConstraints, 
+        video: { cursor: "never" } as MediaTrackConstraints,
         audio: false,
       });
-      
+
       const track = mediaStream.getVideoTracks()[0];
-      
+
       const video = document.createElement('video');
       video.srcObject = mediaStream;
-      
+
       await new Promise<void>((resolve) => {
         video.onloadedmetadata = () => {
           video.play();
           // Add a small delay to ensure the content is fully rendered in the video stream
-          setTimeout(() => resolve(), 500); // Increased delay
+          setTimeout(() => resolve(), 1000); // Increased delay
         };
       });
 
@@ -462,9 +468,9 @@ export default function VerbalInsightsPage() {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const context = canvas.getContext('2d');
-      
+
       if (!context) {
-        track.stop(); 
+        track.stop();
         video.srcObject = null;
         throw new Error('Failed to get canvas context');
       }
@@ -520,10 +526,10 @@ export default function VerbalInsightsPage() {
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll(); 
+    handleScroll();
 
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [analysisInitiated, isAnyLoading, hasAnyData]); 
+  }, [analysisInitiated, isAnyLoading, hasAnyData]);
 
   const handleCopySection = useCallback(async (content: string | null, sectionName: string) => {
     if (!content) {
@@ -543,7 +549,7 @@ export default function VerbalInsightsPage() {
     let textToCopy = "";
     if (pageTitleFromContent) textToCopy += `Title: ${pageTitleFromContent}\n\n`;
     if (summaryData?.summary) textToCopy += summaryData.summary;
-    
+
     const trimmedContent = textToCopy.trim();
     if (trimmedContent) {
       handleCopySection(`${trimmedContent}\n\n---\n${aiDisclaimer}`, "Summary");
@@ -561,7 +567,7 @@ export default function VerbalInsightsPage() {
     textToCopy += `\n\n---\n${aiDisclaimer}`;
     handleCopySection(textToCopy, "Sentiment Analysis");
   }, [sentimentData, handleCopySection]);
-  
+
   const handleCopyWordCloud = useCallback(() => {
     if (!wordCloudData || wordCloudData.length === 0) {
         handleCopySection(null, "Word Cloud");
@@ -587,12 +593,12 @@ export default function VerbalInsightsPage() {
       textToCopy += "Key Quotes:\n";
       keyPointsData.quotes.forEach(quote => textToCopy += `> "${quote}"\n\n`);
     }
-    
+
     const trimmedContent = textToCopy.trim();
     if (trimmedContent) {
       handleCopySection(`${trimmedContent}\n\n---\n${aiDisclaimer}`, "Key Points & Quotes");
     } else {
-       handleCopySection(null, "Key Points & Quotes"); 
+       handleCopySection(null, "Key Points & Quotes");
     }
   }, [keyPointsData, handleCopySection]);
 
@@ -628,27 +634,27 @@ export default function VerbalInsightsPage() {
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat',
-              zIndex: 0, 
+              zIndex: 0,
               transition: 'background-image 0.5s ease-in-out',
             }}
-            data-ai-hint="abstract concept" 
+            data-ai-hint="abstract concept"
           />
           <div
             style={{
               position: 'fixed',
               inset: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.6)', 
-              zIndex: 1, 
+              backgroundColor: 'rgba(0, 0, 0, 0.6)',
+              zIndex: 1,
             }}
           />
         </>
       )}
 
       <div className="min-h-screen container mx-auto px-4 py-8 relative z-10">
-        <UrlInputForm 
-          onSubmit={handleAnalysisSubmit} 
+        <UrlInputForm
+          onSubmit={handleAnalysisSubmit}
           isLoading={isLoadingUrl || isTakingScreenshot}
-          initialUrl={currentInputMode === 'url' ? urlOrPastedText : ''} 
+          initialUrl={currentInputMode === 'url' ? urlOrPastedText : ''}
         />
 
         {urlError && (
@@ -675,7 +681,7 @@ export default function VerbalInsightsPage() {
         {analysisInitiated && !urlError && !isLoadingUrl && (
           <>
             <div ref={actionsCardWrapperRef}>
-              <ActionButtons 
+              <ActionButtons
                 onRefresh={handleGlobalRefreshAnalysis}
                 onCopyToClipboard={handleCopyToClipboard}
                 onDownloadMarkdown={handleDownloadMarkdown}
@@ -684,15 +690,15 @@ export default function VerbalInsightsPage() {
                 exportButtonsDisabled={exportButtonsDisabled}
                 isLoading={isAnyLoading || isLoadingUrl}
                 isTakingScreenshot={isTakingScreenshot}
-                hasData={hasAnyData} 
+                hasData={hasAnyData}
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-              <AnalysisSection 
-                title="Discussion Summary" 
-                icon={FileText} 
-                isLoading={isLoadingSummary} 
+              <AnalysisSection
+                title="Discussion Summary"
+                icon={FileText}
+                isLoading={isLoadingSummary}
                 error={errorSummary}
                 onCopy={summaryData?.summary ? handleCopySummary : undefined}
                 onRefresh={fetchedPageContent ? handleRefreshSummary : undefined}
@@ -711,10 +717,10 @@ export default function VerbalInsightsPage() {
                 )}
               </AnalysisSection>
 
-              <AnalysisSection 
-                title="Sentiment Analysis" 
-                icon={getSentimentIcon(sentimentData?.sentiment)} 
-                isLoading={isLoadingSentiment} 
+              <AnalysisSection
+                title="Sentiment Analysis"
+                icon={getSentimentIcon(sentimentData?.sentiment)}
+                isLoading={isLoadingSentiment}
                 error={errorSentiment}
                 onCopy={sentimentData ? handleCopySentiment : undefined}
                 onRefresh={fetchedPageContent ? handleRefreshSentiment : undefined}
@@ -723,18 +729,18 @@ export default function VerbalInsightsPage() {
                   <div className="space-y-2">
                     <div><strong>Overall Sentiment:</strong> <Badge variant={sentimentData.sentiment.toLowerCase().includes('positive') ? 'default' : sentimentData.sentiment.toLowerCase().includes('negative') ? 'destructive' : 'secondary'}>{sentimentData.sentiment}</Badge></div>
                     <div><strong>Score:</strong> {sentimentData.score.toFixed(2)}</div>
-                    <div className="text-sm text-muted-foreground"><strong>Explanation:</strong> {sentimentData.explanation}</div>
+                    <div className="text-sm text-muted-foreground"><strong>Explanation:</strong> {renderMarkdownLine(sentimentData.explanation, 'sentiment-expl')}</div>
                   </div>
                 ) : (
                   !isLoadingSentiment && <p>No sentiment analysis available.</p>
                 )}
               </AnalysisSection>
-              
-              <AnalysisSection 
-                title="Word Cloud" 
-                icon={Tags} 
-                isLoading={isLoadingWordCloud} 
-                error={errorWordCloud} 
+
+              <AnalysisSection
+                title="Word Cloud"
+                icon={Tags}
+                isLoading={isLoadingWordCloud}
+                error={errorWordCloud}
                 className="md:col-span-2"
                 onCopy={(wordCloudData && wordCloudData.length > 0) ? handleCopyWordCloud : undefined}
                 onRefresh={fetchedPageContent ? handleRefreshWordCloud : undefined}
@@ -742,11 +748,11 @@ export default function VerbalInsightsPage() {
                 <WordCloudDisplay data={wordCloudData} />
               </AnalysisSection>
 
-              <AnalysisSection 
-                title="Key Discussion Points & Quotes" 
-                icon={ListChecks} 
-                isLoading={isLoadingKeyPoints} 
-                error={errorKeyPoints} 
+              <AnalysisSection
+                title="Key Discussion Points & Quotes"
+                icon={ListChecks}
+                isLoading={isLoadingKeyPoints}
+                error={errorKeyPoints}
                 className="md:col-span-2"
                 onCopy={(keyPointsData && (keyPointsData.keyPoints?.length > 0 || keyPointsData.quotes?.length > 0)) ? handleCopyKeyPoints : undefined}
                 onRefresh={fetchedPageContent ? handleRefreshKeyPoints : undefined}
@@ -798,11 +804,11 @@ export default function VerbalInsightsPage() {
                 )}
               </AnalysisSection>
 
-              <AnalysisSection 
-                title="Contextualized Links" 
-                icon={LinkIcon} 
-                isLoading={isLoadingLinks} 
-                error={errorLinks} 
+              <AnalysisSection
+                title="Contextualized Links"
+                icon={LinkIcon}
+                isLoading={isLoadingLinks}
+                error={errorLinks}
                 className="md:col-span-2"
                 onCopy={(linksData && linksData.length > 0 && currentInputMode === 'url') ? handleCopyLinks : undefined}
                 onRefresh={fetchedPageContent && currentInputMode === 'url' && displayUrl !== "Pasted Content" ? handleRefreshLinks : undefined}
@@ -831,4 +837,3 @@ export default function VerbalInsightsPage() {
     </>
   );
 }
-
