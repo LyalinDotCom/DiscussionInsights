@@ -17,7 +17,7 @@ interface AnalysisSectionProps {
   className?: string;
   description?: string;
   onCopy?: () => void;
-  onRefresh?: () => void; // New prop for refresh functionality
+  onRefresh?: () => void;
 }
 
 export function AnalysisSection({ title, icon: Icon, isLoading, error, children, className, description, onCopy, onRefresh }: AnalysisSectionProps) {
@@ -51,27 +51,26 @@ export function AnalysisSection({ title, icon: Icon, isLoading, error, children,
                 </Tooltip>
               </TooltipProvider>
             )}
-            {onCopy && ( // Removed !isLoading condition here, disabled state of button handles it
-              <TooltipProvider delayDuration={100}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={onCopy}
-                      disabled={isLoading} // Disable copy if section is loading
-                      className="text-muted-foreground hover:text-primary"
-                      aria-label={`Copy ${title} to clipboard`}
-                    >
-                      <CopyIconLucide className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Copy {title}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
+            {/* Always render the copy button structure */}
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onCopy} // onClick will be a no-op if onCopy is undefined, as button is disabled
+                    disabled={isLoading || !onCopy} // Disabled if loading OR if onCopy is not provided (meaning no content/data)
+                    className="text-muted-foreground hover:text-primary"
+                    aria-label={`Copy ${title} to clipboard`}
+                  >
+                    <CopyIconLucide className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Copy {title}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
         {description && <CardDescription className="mt-1">{description}</CardDescription>}
